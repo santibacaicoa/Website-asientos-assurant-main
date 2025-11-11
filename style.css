@@ -1,0 +1,405 @@
+/* ==========================================================================
+   RESET / BASE
+   ========================================================================== */
+
+/* Reset / Base */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: Verdana, Geneva, Tahoma, sans-serif;
+  color: beige;
+  background-color: white;
+  line-height: 1.6;
+}
+
+header, nav, main, footer { width: 100%; }
+
+
+/* ==========================================================================
+   HEADER + LOGO
+   ========================================================================== */
+
+/* Header */
+header{
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 25vh;
+  position: relative; /* logo sobre el canvas */
+  z-index: 2;
+}
+
+/* Logo con halo (se suma a tu transición previa) */
+.logo{
+  height: 150px;
+  transition: transform 0.3s ease, filter 0.4s ease; /* unificadas */
+  filter:
+    drop-shadow(0 0 20px rgba(255,255,255,0.6))
+    drop-shadow(0 0 40px rgba(255,255,255,0.4))
+    drop-shadow(0 0 60px rgba(0,150,255,0.3));
+}
+.logo:hover{
+  transform: scale(1.2);
+  filter:
+    drop-shadow(0 0 30px rgba(255,255,255,0.9))
+    drop-shadow(0 0 60px rgba(0,150,255,0.6));
+}
+
+
+/* ==========================================================================
+   LOGIN: MAIN + TIPOGRAFÍA
+   ========================================================================== */
+
+/* Main (pantalla de login) */
+main{
+  height: 50vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.color-texto{
+  color: white;
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+
+/* ==========================================================================
+   LOGIN: INPUT DE CLAVE + BOTÓN OJO
+   ========================================================================== */
+
+/* Input + Ojo */
+.input-wrap{
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.input-clave{
+  padding: 12px 48px 12px 48px; /* simétrico para centrar perfecto */
+  font-size: 16px;
+  border: 2px solid #ccc;
+  border-radius: 10px;
+  outline: none;
+  color: #333;
+  width: 400px;
+  text-align: center;
+}
+.input-clave::placeholder{
+  color: #888;
+  text-align: center;
+  transition: opacity 0.2s ease;
+}
+.input-clave:focus::placeholder,
+.input-clave:not(:placeholder-shown)::placeholder{ opacity: 0; }
+
+.toggle-pwd{
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 5px;
+  color: #8a8a8a;
+  opacity: 0;
+  transition: opacity .2s ease, background-color .2s ease, scale .15s ease;
+  line-height: 0;
+}
+.input-wrap:hover .toggle-pwd,
+.input-clave:focus + .toggle-pwd{ opacity: 1; }
+.toggle-pwd:hover,
+.toggle-pwd:focus{ background-color: rgba(0,0,0,.05); }
+.toggle-pwd:hover{ scale: 1.05; }
+.toggle-pwd[aria-pressed="true"]{ color:#6e6e6e; }
+.toggle-pwd svg{ display:block; pointer-events:none; }
+
+/* Mensaje de error: espacio fijo (no mueve layout) */
+.error-msg{
+  color: red;
+  font-size: 14px;
+  line-height: 18px;
+  height: 18px;
+  margin: 2px 0 0 0;
+  visibility: hidden;
+}
+/* Mostrar error */
+.error-msg.show{ visibility: visible; }
+
+/* Botón Acceder */
+.btn-acceder{
+  margin-top: 6px;
+  padding: 10px 20px;
+  background-color: #1e90ff;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color .25s ease, transform .08s ease, box-shadow .08s ease;
+}
+.btn-acceder:hover{ background-color: #0b6edb; }
+.btn-acceder:active{
+  transform: scale(0.90);
+  box-shadow: 0 2px 8px rgba(0,0,0,.15) inset;
+}
+
+
+/* ==========================================================================
+   ESCENA: CANVAS DE FONDO + ZOOM
+   ========================================================================== */
+
+/* Escena: canvas + panel superpuesto */
+.sky{
+  position: relative;
+  min-height: 60vh;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+#flightCanvas{
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  display: block;
+  z-index: 0; /* fondo animado */
+  border-radius: 0;
+
+  /* Fondo que pediste en index */
+  background-image: url('./images/Captura.PNG');
+  background-size: cover;
+  background-position: center;
+}
+
+/* Zoom al ingresar (mismo centro y escala que HOME) */
+.zoom-bg{
+  transform-origin: center center;
+  animation: zoomToCenter .4s ease;
+}
+@keyframes zoomToCenter{
+  0% { transform: scale(1); }
+  100%{ transform: scale(1.5); } /* corte brusco final */
+}
+
+/* Panel de login sobre el canvas */
+.login-panel{
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  z-index: 1; /* sobre el canvas, debajo del header */
+}
+.login-panel > *{ pointer-events: auto; }
+
+.login-card{
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+}
+
+
+/* ==========================================================================
+   HOME: FONDO, WRAP Y PANEL
+   ========================================================================== */
+
+/* ========= HOME ========= */
+
+/* Fondo “cosido” al final del zoom de index */
+.bg-home{
+  position: fixed;
+  inset: 0;
+  background-image: url('./images/Captura.PNG');
+  background-size: cover;
+  background-position: center;
+  transform: scale(1.5);               /* igual que 100% del zoom */
+  transform-origin: center center;
+  will-change: transform;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* Contenedor centrado 80% pantalla */
+.home-wrap{
+  align-content: center; /* centra los hijos sin tanto espacio */
+  justify-content: center;
+  place-items: start center; /* alinea más arriba el contenido */
+  position: relative;
+  z-index: 1;               /* sobre el fondo */
+  min-height: 50svh;
+  display: grid;
+  margin-top: 4rem;
+}
+
+.panel{
+  width: min(1200px, 80vw);
+  height: 500px; 
+  background: rgba(255,255,255,0.08);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 5px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+  display: grid;
+  grid-template-rows: none;
+  grid-auto-flow: row;
+  grid-auto-rows: auto;  /* todas las filas se ajustan a su contenido */
+  gap: none;
+  padding: 1rem;
+  text-align: center;
+}
+
+.panel-title{
+  font-size: clamp(1.25rem, 2.2vw, 1.8rem);
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: .3px;
+}
+
+.field-label,
+.field-input {
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
+}
+
+.field-label{ color:#e9eef6; font-size:.95rem; }
+
+.field-input{
+  margin-bottom: 0.3rem;
+  width: 100%;
+  max-width: 520px;
+  height: 44px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.25);
+  background: rgba(255,255,255,0.12);
+  color:#fff;
+  padding: 0 .9rem;
+  outline: none;
+  transition: border-color .2s ease, background .2s ease, box-shadow .2s ease;
+}
+.field-input::placeholder{ color:#cfd6df; }
+.field-input:focus{
+  border-color: rgba(88,170,255,0.9);
+  background: rgba(255,255,255,0.16);
+  box-shadow: 0 0 0 4px rgba(88,170,255,0.25);
+}
+
+/* Elección de tipo: dos tarjetas */
+.choices{
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  grid-template-rows: auto auto;
+  gap: 1rem;
+  align-content: start;
+  text-align: center;
+}
+.choice-legend{
+  grid-column: 1 / -1;
+  color:#e9eef6;
+  margin: .25rem 0 .25rem;
+  font-size: .95rem;
+}
+.choice-card{
+  text-align: center;
+  position: relative;
+  display: grid;
+  align-content: center;
+  gap: .25rem;
+  padding: 1rem;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.10);
+  border: 1px solid rgba(255,255,255,0.22);
+  color:#fff;
+  cursor: pointer;
+  user-select: none;
+  transition: transform .15s ease, border-color .2s ease, background .2s ease, box-shadow .2s ease;
+}
+.choice-card:hover{
+  transform: translateY(-1px);
+  background: rgba(255,255,255,0.14);
+}
+.choice-card input{
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.choice-card .choice-title{ font-weight: 600; }
+.choice-card .choice-desc{ opacity: .85; font-size: .9rem; }
+.choice-card:has(input:checked){
+  border-color: rgba(88,170,255,0.95);
+  box-shadow: 0 0 0 4px rgba(88,170,255,0.25);
+  background: rgba(255,255,255,0.18);
+}
+.choice-title,
+.choice-desc {
+  text-align: center;
+  justify-self: center;
+}
+
+/* ==========================================================================
+   BOTÓN CONTINUAR (estilo similar al panel translúcido)
+   ========================================================================== */
+.btn-continuar{
+  margin-top: 1rem;
+  padding: 0.8rem 2.2rem;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 12px;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: .3px;
+  cursor: pointer;
+  transition: 
+    background 0.25s ease,
+    border-color 0.25s ease,
+    box-shadow 0.25s ease,
+    transform 0.15s ease;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+/* Efecto hover */
+.btn-continuar:hover:not(:disabled){
+  background: rgba(255,255,255,0.16);
+  border-color: rgba(88,170,255,0.9);
+  box-shadow: 0 0 14px rgba(88,170,255,0.3);
+  transform: translateY(-1px);
+}
+
+/* Al hacer click */
+.btn-continuar:active:not(:disabled){
+  transform: scale(0.96);
+  box-shadow: 0 0 0 4px rgba(88,170,255,0.25) inset;
+}
+
+/* Estado deshabilitado */
+.btn-continuar:disabled{
+  opacity: 0.4;
+  cursor: default;
+  background: rgba(255,255,255,0.05);
+  border-color: rgba(255,255,255,0.1);
+  box-shadow: none;
+}
+
+
+/* ==========================================================================
+   RESPONSIVE
+   ========================================================================== */
+
+@media (max-width: 480px){
+  .input-clave{ width: 90vw; }
+}
+@media (max-width: 720px){
+  .panel{ width: 92vw; height: auto; min-height: 70vh; }
+  .choices{ grid-template-columns: 1fr; }
+}

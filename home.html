@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <!-- ======================= META Y ASSETS ======================= -->
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pantalla de acceso</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+
+  <body>
+    <!-- ======================= FONDO (MATCH DEL ZOOM FINAL) ======================= -->
+    <div class="bg-home"></div>
+
+    <!-- ======================= HEADER ======================= -->
+    <header>
+      <a href="./index.html"
+        ><img src="./images/Assurant_logo.png" alt="Logo Assurant" class="logo"
+      /></a>
+    </header>
+
+    <!-- ======================= MAIN / PANEL DE RESERVA ======================= -->
+    <main class="home-wrap">
+      <section class="panel">
+        <h1 class="panel-title">Reserva</h1>
+
+        <!-- Nombre -->
+        <label for="nombre" class="field-label">Tu nombre</label>
+        <input
+          id="nombre"
+          class="field-input"
+          type="text"
+          placeholder="Escribe tu nombre"
+          autocomplete="name"
+        />
+
+        <!-- Tipo de reserva -->
+        <div class="choices" role="group" aria-labelledby="reserva-legend">
+          <p id="reserva-legend" class="choice-legend">Tipo de reserva</p>
+
+          <label class="choice-card">
+            <input type="radio" name="tipo-reserva" value="grupal" />
+            <span class="choice-title">Grupal</span>
+            <span class="choice-desc">Para varias personas</span>
+          </label>
+
+          <label class="choice-card">
+            <input type="radio" name="tipo-reserva" value="individual" />
+            <span class="choice-title">Individual</span>
+            <span class="choice-desc">Solo para vos</span>
+          </label>
+        </div>
+
+        <!-- Botón Continuar (igual estilo que Acceder) -->
+        <button
+          id="btnContinuar"
+          class="btn-continuar"
+          type="button"
+          disabled
+          aria-disabled="true"
+        >
+          Continuar
+        </button>
+      </section>
+    </main>
+
+    <!-- ======================= FOOTER ======================= -->
+    <footer></footer>
+
+    <!-- ======================= SCRIPTS ======================= -->
+    <script src="./script.js"></script>
+    <script src="./home.js"></script>
+  </body>
+</html>

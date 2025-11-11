@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <!-- ======================= META Y CONFIGURACIÓN BÁSICA ======================= -->
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pantalla de acceso</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+
+  <body>
+    <!-- ======================= ENCABEZADO ======================= -->
+    <header>
+      <a href="./index.html">
+        <img
+          src="./images/Assurant_logo.png"
+          alt="Logo Assurant"
+          class="logo"
+        />
+      </a>
+    </header>
+
+    <!-- ======================= CONTENIDO PRINCIPAL ======================= -->
+    <main class="sky">
+      <!-- Canvas de animación -->
+      <canvas
+        id="flightCanvas"
+        aria-label="Animación niño en caja volando"
+      ></canvas>
+
+      <!-- Panel de login -->
+      <div class="login-panel">
+        <div class="login-card">
+          <p class="color-texto">Clave de acceso</p>
+
+          <!-- Campo de clave + botón ojo -->
+          <div class="input-wrap">
+            <input
+              type="password"
+              placeholder="Clave"
+              class="input-clave"
+              id="clave"
+              aria-label="Clave de acceso"
+            />
+            <button
+              type="button"
+              class="toggle-pwd"
+              id="togglePwd"
+              aria-pressed="false"
+              aria-label="Mostrar contraseña"
+              title="Mostrar contraseña"
+            >
+              <!-- Icono: ojo abierto -->
+              <svg
+                class="icon-eye"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path
+                  d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+                <circle
+                  cx="12"
+                  cy="12"
+                  r="3"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                />
+              </svg>
+
+              <!-- Icono: ojo tachado -->
+              <svg
+                class="icon-eye-off"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+                style="display: none"
+              >
+                <path
+                  d="M3 3l18 18"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                />
+                <path
+                  d="M10.58 10.58A3 3 0 0012 15a3 3 0 002.42-4.42M9.88 5.08A10.6 10.6 0 0112 5c6 0 10 7 10 7a18.7 18.7 0 01-4.23 4.7M6.22 6.22A18.5 18.5 0 002 12s4 7 10 7a10.3 10.3 0 003.05-.47"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </button>
+          </div>
+
+          <!-- Mensaje de error -->
+          <p id="errorMsg" class="error-msg">
+            Clave incorrecta. Vuelva a intentarlo.
+          </p>
+
+          <!-- Botón de acceso -->
+          <button class="btn-acceder" id="btnAcceder" type="button">
+            Acceder
+          </button>
+        </div>
+      </div>
+    </main>
+
+    <!-- ======================= PIE DE PÁGINA ======================= -->
+    <footer></footer>
+
+    <!-- ======================= SCRIPTS ======================= -->
+    <script src="./flight.js"></script>
+    <script src="./script.js"></script>
+  </body>
+</html>
