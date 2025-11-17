@@ -498,10 +498,6 @@ box-shadow: none;
    RESPONSIVE
    ========================================================================== */
 
-@media (max-width: 480px){
-  .input-clave{ width: 90vw; }
-}
-
 @media (max-width: 1700px){
     .logo{
         height: 100px;
@@ -539,4 +535,22 @@ box-shadow: none;
 .floor-subtitle{
     display: none;
 }
+}
+
+@media (max-width: 500px){
+  .input-clave{ width: 90vw; }
+
+  .floor-layer{
+  max-width: 350px;
+  min-width: 90px;
+}
+
+.floor-layer-11{
+  bottom: 12.6%;
+}
+
+.floor-layer-12{
+  bottom: 26.4%;
+}
+
 }
