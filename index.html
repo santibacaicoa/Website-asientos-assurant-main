@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
   <head>
-    <!-- ======================= META Y CONFIGURACIÓN BÁSICA ======================= -->
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Pantalla de acceso</title>
@@ -9,7 +8,7 @@
   </head>
 
   <body>
-    <!-- ======================= ENCABEZADO ======================= -->
+    <!-- ======================= HEADER ======================= -->
     <header>
       <a href="./index.html">
         <img
@@ -20,20 +19,25 @@
       </a>
     </header>
 
-    <!-- ======================= CONTENIDO PRINCIPAL ======================= -->
+    <!-- ======================= MAIN ======================= -->
     <main class="sky">
-      <!-- Canvas de animación -->
+      <!-- Fondo base (Captura) -->
+      <div class="bg-base"></div>
+
+      <!-- Edificio (se hace zoom en index) -->
+      <div class="bg-building"></div>
+
+      <!-- Canvas del niño -->
       <canvas
         id="flightCanvas"
         aria-label="Animación niño en caja volando"
       ></canvas>
 
-      <!-- Panel de login -->
+      <!-- Panel login -->
       <div class="login-panel">
         <div class="login-card">
           <p class="color-texto">Clave de acceso</p>
 
-          <!-- Campo de clave + botón ojo -->
           <div class="input-wrap">
             <input
               type="password"
@@ -50,7 +54,6 @@
               aria-label="Mostrar contraseña"
               title="Mostrar contraseña"
             >
-              <!-- Icono: ojo abierto -->
               <svg
                 class="icon-eye"
                 width="20"
@@ -76,7 +79,6 @@
                 />
               </svg>
 
-              <!-- Icono: ojo tachado -->
               <svg
                 class="icon-eye-off"
                 width="20"
@@ -104,12 +106,11 @@
             </button>
           </div>
 
-          <!-- Mensaje de error -->
+          <!-- Error -->
           <p id="errorMsg" class="error-msg">
             Clave incorrecta. Vuelva a intentarlo.
           </p>
 
-          <!-- Botón de acceso -->
           <button class="btn-acceder" id="btnAcceder" type="button">
             Acceder
           </button>
@@ -117,10 +118,6 @@
       </div>
     </main>
 
-    <!-- ======================= PIE DE PÁGINA ======================= -->
-    <footer></footer>
-
-    <!-- ======================= SCRIPTS ======================= -->
     <script src="./flight.js"></script>
     <script src="./script.js"></script>
   </body>

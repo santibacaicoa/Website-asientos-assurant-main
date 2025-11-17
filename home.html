@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
   <head>
-    <!-- ======================= META Y ASSETS ======================= -->
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Pantalla de acceso</title>
@@ -9,22 +8,26 @@
   </head>
 
   <body>
-    <!-- ======================= FONDO (MATCH DEL ZOOM FINAL) ======================= -->
-    <div class="bg-home"></div>
+    <!-- Fondo base (sin zoom) -->
+    <div class="bg-base"></div>
 
-    <!-- ======================= HEADER ======================= -->
+    <!-- Edificio con zoom ya aplicado -->
+    <div class="bg-building zoom-building"></div>
+
     <header>
-      <a href="./index.html"
-        ><img src="./images/Assurant_logo.png" alt="Logo Assurant" class="logo"
-      /></a>
+      <a href="./index.html">
+        <img
+          src="./images/Assurant_logo.png"
+          alt="Logo Assurant"
+          class="logo"
+        />
+      </a>
     </header>
 
-    <!-- ======================= MAIN / PANEL DE RESERVA ======================= -->
     <main class="home-wrap">
       <section class="panel">
         <h1 class="panel-title">Reserva</h1>
 
-        <!-- Nombre -->
         <label for="nombre" class="field-label">Tu nombre</label>
         <input
           id="nombre"
@@ -34,7 +37,6 @@
           autocomplete="name"
         />
 
-        <!-- Tipo de reserva -->
         <div class="choices" role="group" aria-labelledby="reserva-legend">
           <p id="reserva-legend" class="choice-legend">Tipo de reserva</p>
 
@@ -51,7 +53,6 @@
           </label>
         </div>
 
-        <!-- Botón Continuar (igual estilo que Acceder) -->
         <button
           id="btnContinuar"
           class="btn-continuar"
@@ -64,10 +65,6 @@
       </section>
     </main>
 
-    <!-- ======================= FOOTER ======================= -->
-    <footer></footer>
-
-    <!-- ======================= SCRIPTS ======================= -->
     <script src="./script.js"></script>
     <script src="./home.js"></script>
   </body>
