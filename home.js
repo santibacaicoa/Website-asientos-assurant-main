@@ -2,7 +2,7 @@
 // HOME.JS — Lógica de la pantalla Home (nombre + tipo de reserva + Continuar)
 // - Guarda/restaura estado en localStorage
 // - Habilita "Continuar" solo si nombre + tipo están completos
-// - No modifica estilos ni estructura existentes
+// - Deja placeholder para enviar datos a una API / PostgreSQL
 // ============================================================================
 
 (function () {
@@ -29,7 +29,7 @@
   };
 
   // -------------------------- Utils: Helpers --------------------------------
-  const $ = (sel, ctx = document) => ctx.querySelector(sel);
+  const $  = (sel, ctx = document) => ctx.querySelector(sel);
   const $$ = (sel, ctx = document) => Array.from(ctx.querySelectorAll(sel));
 
   function getSelectedTipo() {
@@ -57,7 +57,7 @@
     const btnContinuar = $('#btnContinuar');
 
     // Si no estamos en home o falta algo esencial, salir.
-    if (!inputNombre || radios.length === 0 || !btnContinuar) return;
+    if (!inputNombre || !radios.length || !btnContinuar) return;
 
     // 1) Restaurar estado desde localStorage
     const savedNombre = store.get(K.nombre, '');
@@ -95,18 +95,39 @@
       });
     });
 
-    // 4) Acción de Continuar (placeholder: ajustá según tu flujo)
+    // 4) Acción de Continuar
     btnContinuar.addEventListener('click', () => {
       if (!isValid()) return; // seguridad
-      // En este punto tenés:
-      //  - Nombre: store.get(K.nombre)
-      //  - Tipo:   store.get(K.tipo)
-      // TODO: Navegar o abrir el siguiente paso. Mientras tanto:
-      console.log('Continuar:', {
-        nombre: store.get(K.nombre, ''),
-        tipo: store.get(K.tipo, '')
+
+      const payload = {
+        nombre: (inputNombre.value || '').trim(),
+        tipo: getSelectedTipo()
+      };
+
+      // Guardamos también en localStorage de forma explícita
+      store.set(K.nombre, payload.nombre);
+      store.set(K.tipo, payload.tipo);
+
+      // TODO: más adelante, enviar a tu backend / PostgreSQL
+      /*
+      fetch('/api/pre-reservas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }).then(res => res.json()).then(data => {
+        console.log('Pre-reserva guardada en backend', data);
+        window.location.href = 'floors.html';
+      }).catch(err => {
+        console.error('Error guardando pre-reserva', err);
+        // Igual podemos navegar, o mostrar error, según decidas.
+        window.location.href = 'floors.html';
       });
-      // Ejemplo: window.location.href = 'seleccionar-fecha.html';
+      */
+
+      console.log('Pre-reserva (solo front, por ahora):', payload);
+
+      // De momento, navegamos directo a la página de pisos.
+      window.location.href = 'floors.html';
     });
 
     // 5) Guardado final al salir (por si quedó algo en buffer)

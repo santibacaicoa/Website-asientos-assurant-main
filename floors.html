@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Elegir piso</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+
+  <body class="page-floors">
+    <!-- Fondo base y edificio general -->
+    <div class="bg-base"></div>
+    <div class="bg-building"></div>
+
+    <header>
+      <a href="./index.html">
+        <img
+          src="./images/Assurant_logo.png"
+          alt="Logo Assurant"
+          class="logo"
+        />
+      </a>
+    </header>
+
+    <main class="floors-layout">
+      <!-- Panel de UI para elegir el piso -->
+      <section class="floor-ui">
+        <h1 class="floor-title">Elegí un piso para tu reserva</h1>
+        <p class="floor-subtitle">
+          Seleccioná el piso que querés reservar. Después vas a poder elegir los
+          asientos disponibles.
+        </p>
+      </section>
+
+      <!-- Capas de pisos recortados por encima del edificio -->
+      <section class="floor-layers" aria-hidden="true">
+        <img
+          src="./images/Building_8.png"
+          alt="Piso 8"
+          class="floor-layer floor-layer-8"
+          data-floor="8"
+        />
+        <img
+          src="./images/Building_11.png"
+          alt="Piso 11"
+          class="floor-layer floor-layer-11"
+          data-floor="11"
+        />
+        <img
+          src="./images/Building_12.png"
+          alt="Piso 12"
+          class="floor-layer floor-layer-12"
+          data-floor="12"
+        />
+      </section>
+    </main>
+
+    <script src="./floors.js"></script>
+  </body>
+</html>

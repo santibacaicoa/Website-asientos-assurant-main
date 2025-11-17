@@ -26,7 +26,7 @@ if (building) building.classList.add('zoom-building');
 
 setTimeout(() => {
 window.location.href = 'home.html';
-}, 350);
+}, 300);
 
 } else {
 if (error) error.classList.add('show');
