@@ -535,11 +535,11 @@ box-shadow: none;
     }
 
 .floor-layer-11{
-  bottom: 18%;
+  bottom: 17.3%;
 }
 
 .floor-layer-12{
-  bottom: 37.8%;
+  bottom: 36.2%;
 }
 
 .panel{ width: 92vw; height: auto; min-height: 70vh; }
@@ -554,7 +554,7 @@ box-shadow: none;
     max-width: 100%;
     top: 180px;
     left: auto;
-    height: 80px;
+    height: 90px;
 }  
 
 .floor-subtitle{
@@ -562,7 +562,7 @@ box-shadow: none;
 }
 }
 
-@media (max-width: 500px){
+@media (max-width: 720px){
   .input-clave{ width: 90vw; }
 
   .floor-layer{
@@ -577,6 +577,11 @@ box-shadow: none;
 
 .floor-layer-12{
   bottom: 26.4%;
+}
+
+.building-frame{
+  width: min(100vw, 350px);
+  aspect-ratio: 5 / 11.9 /* ajustá si tu edificio es más alto/bajo */
 }
 
 }
