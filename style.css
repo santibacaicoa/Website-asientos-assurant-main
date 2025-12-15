@@ -56,15 +56,15 @@ background-position: center;
 pointer-events: none;
 }
 
-/* Edificio (CON ZOOM) */
+/* Edificio (SIN ZOOM) */
 .bg-building{
 position: fixed;
 inset: 0;
 z-index: 1;
 transition: transform 0.2s ease;
-transform: translateY(50px) translateX(-50px);
+transform: translateY(120px) scale(0.6);
 display: flex;
-align-items: center;
+align-items: baseline;
 justify-content: center;
 scale: 0.60;
 }
@@ -75,7 +75,7 @@ position: fixed;
 inset: 0;
 z-index: 1;
 transition: transform 0.2 ease;
-transform: translateX(-50px) translateY(-105px) scale(1.17);
+transform: translateY(160px) scale(0.8);
 display: flex;
 align-items: center;
 justify-content: center;
