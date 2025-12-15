@@ -8,7 +8,7 @@
   </head>
 
   <body class="page-floors">
-    <!-- Fondo base y edificio general -->
+    <!-- Fondo base -->
     <div class="bg-base"></div>
     <div class="bg-building"></div>
 
@@ -23,18 +23,24 @@
     </header>
 
     <main class="floors-layout">
-      <!-- Panel de UI para elegir el piso -->
+      <!-- Panel de UI -->
       <section class="floor-ui">
         <h1 class="floor-title">Elegí un piso para tu reserva</h1>
         <p class="floor-subtitle">
           Seleccioná el piso que querés reservar. Después vas a poder elegir los
-          asientos disponibles.
+          asientos y fechas disponibles.
         </p>
       </section>
 
-      <!-- Capas de pisos recortados dentro de un contenedor común -->
+      <!-- Capas PNG dentro de un contenedor común (NO se separa en distintas pantallas) -->
       <section class="floor-layers" aria-hidden="true">
         <div class="building-frame">
+          <img
+            src="./images/Building_7.png"
+            alt="Piso 7"
+            class="floor-layer floor-layer-7"
+            data-floor="7"
+          />
           <img
             src="./images/Building_8.png"
             alt="Piso 8"
