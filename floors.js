@@ -1,8 +1,8 @@
-// ============================================================================
+// =============================================================================
 // floors.js - Selección de piso (capas PNG)
-// - Click en piso -> guarda en localStorage
-// - Si existe reserva.id -> actualiza piso en PostgreSQL via Node/Express
-// ============================================================================
+// - Click en piso -> guarda en localStorage (reserva.floor)
+// - Si existe reserva.id -> PATCH al backend para guardar piso_id
+// =============================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
   const floorLayers = document.querySelectorAll('.floor-layer');
@@ -15,40 +15,40 @@ document.addEventListener('DOMContentLoaded', () => {
     '12': 'floor12.html',
   };
 
-  function getReservaId() {
-    try { return JSON.parse(localStorage.getItem('reserva.id')); }
-    catch { return null; }
+  function getJSON(key, fallback = null) {
+    try { return JSON.parse(localStorage.getItem(key)) ?? fallback; }
+    catch { return fallback; }
   }
 
   async function setPisoEnBackend(reservaId, pisoNumero) {
     const res = await fetch(`/api/reservas/${reservaId}/piso`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ piso: Number(pisoNumero) }),
+      body: JSON.stringify({ piso: Number(pisoNumero) })
     });
-    return res.json();
+    const data = await res.json().catch(() => ({}));
+    return { res, data };
   }
 
   async function seleccionarPiso(floor) {
     const floorStr = String(floor);
     localStorage.setItem('reserva.floor', floorStr);
 
-    const reservaId = getReservaId();
+    const reservaId = getJSON('reserva.id', null);
 
-    // Intentamos actualizar en DB si tenemos ID
     if (reservaId) {
       try {
-        const data = await setPisoEnBackend(reservaId, floorStr);
-        if (data?.ok) {
-          console.log('Piso actualizado en backend:', data.reserva);
+        const { res, data } = await setPisoEnBackend(reservaId, floorStr);
+        if (!res.ok || !data.ok) {
+          console.warn('No se pudo guardar el piso en backend:', data);
         } else {
-          console.warn('No se pudo actualizar piso en backend:', data);
+          console.log('Piso guardado en backend:', data.reserva);
         }
       } catch (err) {
-        console.error('Error actualizando piso en backend:', err);
+        console.error('Error guardando piso en backend:', err);
       }
     } else {
-      console.warn('No hay reserva.id en localStorage (todavía).');
+      console.warn('No hay reserva.id en localStorage. (¿Se creó la pre-reserva en Home?)');
     }
 
     const target = floorRoutes[floorStr] || 'home.html';

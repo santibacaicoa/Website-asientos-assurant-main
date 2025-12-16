@@ -21,9 +21,10 @@ header{
 display: flex;
 justify-content: center;
 align-items: center;
-height: 25vh;
-position: relative;
-z-index: 3;
+height: 100px;
+z-index: 20;
+position: fixed;
+top: 70px;
 }
 
 .logo{
@@ -34,6 +35,7 @@ drop-shadow(0 0 20px rgba(255,255,255,0.6))
 drop-shadow(0 0 40px rgba(255,255,255,0.4))
 drop-shadow(0 0 60px rgba(0,150,255,0.3));
 }
+
 .logo:hover{
 transform: scale(1.2);
 filter:
@@ -77,7 +79,7 @@ z-index: 1;
 transition: transform 0.2 ease;
 transform: translateY(160px) scale(0.8);
 display: flex;
-align-items: center;
+align-items: baseline;
 justify-content: center;
 }
 
@@ -220,6 +222,7 @@ display: grid;
 place-items: center;
 pointer-events: none;
 z-index: 3;
+top: 300px;
 }
 
 .login-panel > *{ pointer-events: auto; }
@@ -244,33 +247,54 @@ position: relative;
 z-index: 3;
 min-height: 50svh;
 display: grid;
-margin-top: 4rem;
 }
 
 .panel{
-width: min(1200px, 80vw);
-height: 500px;
-background: rgba(255,255,255,0.08);
-backdrop-filter: blur(8px);
--webkit-backdrop-filter: blur(8px);
-border: 1px solid rgba(255,255,255,0.18);
-border-radius: 5px;
-box-shadow: 0 20px 60px rgba(0,0,0,0.25);
-display: grid;
-grid-template-rows: none;
-grid-auto-flow: row;
-grid-auto-rows: auto;
-gap: none;
-padding: 1rem;
-text-align: center;
+  z-index: 19;
+  width: min(1200px, 80vw);
+  height: 712px;
+
+  position: relative;
+  top: 330px;
+
+  /* antes: rgba(255,255,255,0.08) -> muy transparente */
+  background: rgba(0,0,0,0.28);
+
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+
+  border: 1px solid rgba(255,255,255,0.20);
+  border-radius: 5px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+
+  display: grid;
+  grid-template-rows: none;
+  grid-auto-flow: row;
+  grid-auto-rows: auto;
+  gap: none;
+  padding: 1rem;
+  text-align: center;
 }
 
+
 .panel-title{
-font-size: clamp(1.25rem, 2.2vw, 1.8rem);
-font-weight: 600;
-color: #fff;
-letter-spacing: .3px;
+  font-size: clamp(1.25rem, 2.2vw, 1.8rem);
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: .3px;
+
+  /* nuevo: legibilidad */
+  text-shadow: 0 2px 10px rgba(0,0,0,0.55);
 }
+
+.panel-divider{
+  border: 0;
+  height: 1px;
+  margin: 18px 0; /* más aire */
+  background: rgba(255,255,255,.16);
+}
+
+
 
 .field-label,
 .field-input {
@@ -279,7 +303,18 @@ margin-right: auto;
 text-align: center;
 }
 
-.field-label{ color:#e9eef6; font-size:.95rem; }
+.field-label{
+  display: block;              /* clave: siempre arriba */
+  width: 100%;
+  max-width: 520px;
+  margin: 10px auto 6px;       /* más aire arriba/abajo */
+  color:#e9eef6;
+  font-size:.95rem;
+
+  /* nuevo: legibilidad */
+  text-shadow: 0 2px 8px rgba(0,0,0,0.55);
+}
+
 
 .field-input{
 margin-bottom: 0.3rem;
@@ -522,6 +557,112 @@ box-shadow: none;
     align-items: center;
     text-align: center;
 }
+
+/* ===================================================== */
+/* HOME - steps (no dropdowns) */
+/* ===================================================== */
+
+.is-hidden { display: none !important; }
+
+.row-inline{
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.btn-inline{
+  padding: 8px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.18);
+  background: rgba(0,0,0,.12);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: transform .12s ease, background .12s ease, border-color .12s ease;
+}
+
+.btn-inline:hover{
+  transform: translateY(-1px);
+  background: rgba(0,0,0,.18);
+  border-color: rgba(255,255,255,.26);
+}
+
+.btn-secondary{
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.18);
+  background: rgba(255,255,255,.08);
+  color: white;
+  font-size: 0.95rem;
+  cursor: pointer;
+
+  /* nuevo: más aire vertical */
+  margin-top: 8px;
+
+  transition:
+    background 0.15s ease,
+    transform 0.12s ease,
+    border-color 0.15s ease;
+}
+
+.btn-secondary:hover{
+  background: rgba(255,255,255,.15);
+  border-color: rgba(255,255,255,.35);
+  transform: translateY(-1px);
+}
+
+.msg{
+  margin-top: 18px;   
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+
+.grid-2{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 680px){
+  .grid-2{
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ============================= */
+/* Login usuario - alineación    */
+/* ============================= */
+
+.login-row{
+  display: grid;
+
+  /* antes: input + botón en la misma fila */
+  grid-template-columns: minmax(220px, 420px);
+  grid-template-rows: auto auto;
+
+  gap: 10px;
+  justify-content: center;
+  justify-items: center;
+  align-items: center;
+  margin: 0 auto;
+}
+
+.login-row .field-input{
+  width: 100%;
+}
+
+.login-row .btn-inline{
+  white-space: nowrap;
+  width: 100%;
+  max-width: 220px;
+}
+
+
+
+
 
 
 /* ==========================================================================

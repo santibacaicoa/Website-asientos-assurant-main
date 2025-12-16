@@ -8,16 +8,12 @@
   </head>
 
   <body>
-    <!-- Fondo base (sin zoom) -->
+    <!-- Fondo base -->
     <div class="bg-base"></div>
 
-    <!-- Edificio con zoom ya aplicado -->
+    <!-- Edificio (si ya lo usás en home) -->
     <div class="bg-building zoom-building">
-      <img
-        class="scale-up scale-transition"
-        src="./Images/building.png"
-        alt=""
-      />
+      <img src="./images/Building.png" alt="Edificio" />
     </div>
 
     <header>
@@ -34,42 +30,200 @@
       <section class="panel">
         <h1 class="panel-title">Reserva</h1>
 
-        <label for="nombre" class="field-label"
-          >Ingresa tu nombre y apellido</label
-        >
-        <input
-          id="nombre"
-          class="field-input"
-          type="text"
-          placeholder="Escribe tu nombre"
-          autocomplete="name"
-        />
+        <!-- ======================================================= -->
+        <!-- STEP: AUTH MAIN (login + registro) -->
+        <!-- ======================================================= -->
+        <div id="stepAuthMain">
+          <p class="panel-subtitle">Ingresá con tu usuario o registrate</p>
 
-        <div class="choices" role="group" aria-labelledby="reserva-legend">
-          <p id="reserva-legend" class="choice-legend">Tipo de reserva</p>
+          <!-- Login user -->
+          <label for="login-username" class="field-label">Usuario</label>
+          <div class="login-row">
+            <input
+              id="login-username"
+              class="field-input"
+              type="text"
+              placeholder="Tu usuario"
+            />
+            <button id="btnLoginUser" class="btn-inline" type="button">
+              Ingresar
+            </button>
+          </div>
 
-          <label class="choice-card">
-            <input type="radio" name="tipo-reserva" value="grupal" />
-            <span class="choice-title">Grupal</span>
-            <span class="choice-desc">Para varias personas</span>
-          </label>
+          <button id="btnGoForgot" class="btn-secondary" type="button">
+            Me olvidé mi usuario
+          </button>
 
-          <label class="choice-card">
-            <input type="radio" name="tipo-reserva" value="individual" />
-            <span class="choice-title">Individual</span>
-            <span class="choice-desc">Solo para vos</span>
-          </label>
+          <hr class="panel-divider" />
+
+          <!-- Registro user -->
+          <p class="choice-legend">¿Primera vez? Registrate</p>
+
+          <label for="reg-username" class="field-label">Nuevo usuario</label>
+          <input
+            id="reg-username"
+            class="field-input"
+            type="text"
+            placeholder="Elegí un usuario único"
+            autocomplete="off"
+          />
+
+          <div class="grid-2">
+            <div>
+              <label for="reg-nombre" class="field-label">Nombre</label>
+              <input
+                id="reg-nombre"
+                class="field-input"
+                type="text"
+                placeholder="Nombre"
+                autocomplete="given-name"
+              />
+            </div>
+
+            <div>
+              <label for="reg-apellido" class="field-label">Apellido</label>
+              <input
+                id="reg-apellido"
+                class="field-input"
+                type="text"
+                placeholder="Apellido"
+                autocomplete="family-name"
+              />
+            </div>
+          </div>
+
+          <button id="btnRegisterUser" class="btn-secondary" type="button">
+            Crear usuario
+          </button>
+
+          <hr class="panel-divider" />
+
+          <button id="btnGoAdmin" class="btn-secondary" type="button">
+            Acceso administradores
+          </button>
+
+          <p id="authMsg" class="msg"></p>
         </div>
 
-        <button
-          id="btnContinuar"
-          class="btn-continuar"
-          type="button"
-          disabled
-          aria-disabled="true"
-        >
-          Continuar
-        </button>
+        <!-- ======================================================= -->
+        <!-- STEP: FORGOT USERNAME -->
+        <!-- ======================================================= -->
+        <div id="stepForgot" class="is-hidden">
+          <p class="panel-subtitle">Recuperar usuario</p>
+
+          <div class="grid-2">
+            <div>
+              <label for="forgot-nombre" class="field-label">Nombre</label>
+              <input
+                id="forgot-nombre"
+                class="field-input"
+                type="text"
+                placeholder="Nombre"
+                autocomplete="given-name"
+              />
+            </div>
+
+            <div>
+              <label for="forgot-apellido" class="field-label">Apellido</label>
+              <input
+                id="forgot-apellido"
+                class="field-input"
+                type="text"
+                placeholder="Apellido"
+                autocomplete="family-name"
+              />
+            </div>
+          </div>
+
+          <button id="btnFindUser" class="btn-secondary" type="button">
+            Buscar mi usuario
+          </button>
+
+          <div id="matchesBox" class="matches is-hidden">
+            <p class="choice-legend">Encontramos estos usuarios:</p>
+            <div id="matchesList" class="matches-list"></div>
+          </div>
+
+          <button id="btnBackFromForgot" class="btn-secondary" type="button">
+            Volver
+          </button>
+
+          <p id="forgotMsg" class="msg"></p>
+        </div>
+
+        <!-- ======================================================= -->
+        <!-- STEP: ADMIN LOGIN -->
+        <!-- ======================================================= -->
+        <div id="stepAdmin" class="is-hidden">
+          <p class="panel-subtitle">Acceso administradores</p>
+
+          <label for="admin-username" class="field-label">Usuario admin</label>
+          <input
+            id="admin-username"
+            class="field-input"
+            type="text"
+            placeholder="Usuario admin"
+            autocomplete="username"
+          />
+
+          <label for="admin-password" class="field-label">Password admin</label>
+          <input
+            id="admin-password"
+            class="field-input"
+            type="password"
+            placeholder="Password"
+            autocomplete="current-password"
+          />
+
+          <button id="btnLoginAdmin" class="btn-secondary" type="button">
+            Ingresar como admin
+          </button>
+
+          <button id="btnBackFromAdmin" class="btn-secondary" type="button">
+            Volver
+          </button>
+
+          <p id="adminMsg" class="msg"></p>
+        </div>
+
+        <!-- ======================================================= -->
+        <!-- STEP: RESERVA (tipo) -->
+        <!-- ======================================================= -->
+        <div id="stepReserva" class="is-hidden">
+          <p id="welcomeUser" class="panel-subtitle"></p>
+
+          <div class="choices" role="group" aria-labelledby="reserva-legend">
+            <p id="reserva-legend" class="choice-legend">Tipo de reserva</p>
+
+            <label class="choice-card">
+              <input type="radio" name="tipo-reserva" value="grupal" />
+              <span class="choice-title">Grupal</span>
+              <span class="choice-desc">Para varias personas</span>
+            </label>
+
+            <label class="choice-card">
+              <input type="radio" name="tipo-reserva" value="individual" />
+              <span class="choice-title">Individual</span>
+              <span class="choice-desc">Solo para vos</span>
+            </label>
+          </div>
+
+          <button
+            id="btnContinuar"
+            class="btn-continuar"
+            type="button"
+            disabled
+            aria-disabled="true"
+          >
+            Continuar
+          </button>
+
+          <button id="btnLogout" class="btn-secondary" type="button">
+            Cambiar usuario
+          </button>
+
+          <p id="reservaMsg" class="msg"></p>
+        </div>
       </section>
     </main>
 
