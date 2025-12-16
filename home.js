@@ -2,7 +2,7 @@
 // HOME.JS — Lógica de la pantalla Home (nombre + tipo de reserva + Continuar)
 // - Guarda/restaura estado en localStorage
 // - Habilita "Continuar" solo si nombre + tipo están completos
-// - Deja placeholder para enviar datos a una API / PostgreSQL
+// - Crea una "pre-reserva" en PostgreSQL vía Node/Express
 // ============================================================================
 
 (function () {
@@ -10,6 +10,7 @@
   const K = {
     nombre: 'home.nombre',
     tipo: 'home.tipo', // 'grupal' | 'individual'
+    reservaId: 'reserva.id', // ID devuelto por la DB
   };
 
   // -------------------------- Utils: Storage --------------------------------
@@ -46,7 +47,7 @@
   }
 
   function debounce(fn, ms = 300) {
-    let t; 
+    let t;
     return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
   }
 
@@ -56,7 +57,6 @@
     const radios       = $$('input[name="tipo-reserva"]');
     const btnContinuar = $('#btnContinuar');
 
-    // Si no estamos en home o falta algo esencial, salir.
     if (!inputNombre || !radios.length || !btnContinuar) return;
 
     // 1) Restaurar estado desde localStorage
@@ -79,7 +79,6 @@
       btnContinuar.setAttribute('aria-disabled', String(!ok));
     }
 
-    // Estado inicial del botón
     updateContinuar();
 
     // 3) Listeners: guardar cambios y actualizar botón
@@ -96,58 +95,62 @@
     });
 
     // 4) Acción de Continuar
-    btnContinuar.addEventListener('click', () => {
-      if (!isValid()) return; // seguridad
+    btnContinuar.addEventListener('click', async () => {
+      if (!isValid()) return;
 
       const payload = {
         nombre: (inputNombre.value || '').trim(),
-        tipo: getSelectedTipo()
+        tipo: getSelectedTipo(),
+        // más adelante: cantidad_asientos real si agregás la pregunta
+        cantidad_asientos: 1,
       };
 
-      // Guardamos también en localStorage de forma explícita
       store.set(K.nombre, payload.nombre);
       store.set(K.tipo, payload.tipo);
 
-      // TODO: más adelante, enviar a tu backend / PostgreSQL
-      /*
-      fetch('/api/pre-reservas', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      }).then(res => res.json()).then(data => {
-        console.log('Pre-reserva guardada en backend', data);
-        window.location.href = 'floors.html';
-      }).catch(err => {
-        console.error('Error guardando pre-reserva', err);
-        // Igual podemos navegar, o mostrar error, según decidas.
-        window.location.href = 'floors.html';
-      });
-      */
+      try {
+        const res = await fetch('/api/pre-reservas', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
 
-      console.log('Pre-reserva (solo front, por ahora):', payload);
+        const data = await res.json();
 
-      // De momento, navegamos directo a la página de pisos.
+        if (data?.ok && data?.reserva?.id) {
+          store.set(K.reservaId, data.reserva.id);
+          console.log('Pre-reserva guardada en backend:', data.reserva);
+        } else {
+          console.warn('Respuesta inesperada del backend:', data);
+        }
+      } catch (err) {
+        console.error('No se pudo guardar pre-reserva en backend:', err);
+        // No rompemos el flujo: seguimos igual
+      }
+
       window.location.href = 'floors.html';
     });
 
-    // 5) Guardado final al salir (por si quedó algo en buffer)
+    // 5) Guardado final al salir
     window.addEventListener('beforeunload', () => {
       store.set(K.nombre, (inputNombre.value || '').trim());
       store.set(K.tipo, getSelectedTipo());
     });
 
-    // 6) Helpers de depuración en consola
+    // 6) Helpers de depuración
     window.reserva = {
       get() {
         return {
           nombre: store.get(K.nombre, ''),
           tipo: store.get(K.tipo, ''),
+          reservaId: store.get(K.reservaId, null),
           valido: isValid()
         };
       },
       clear() {
         store.del(K.nombre);
         store.del(K.tipo);
+        store.del(K.reservaId);
       }
     };
   });
