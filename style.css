@@ -52,7 +52,7 @@ CAPAS DE FONDO Y EDIFICIO
 position: fixed;
 inset: 0;
 z-index: 0;
-background-image: url('/images/Captura.png');
+background-image: url('/images/captura.png');
 background-size: cover;
 background-position: center;
 pointer-events: none;

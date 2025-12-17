@@ -18,7 +18,7 @@
 
   // --- Logo Assurant (cargado una vez) ---
   const logoImg = new Image();
-  logoImg.src = './images/Assurant_logo.png'; // usa el mismo logo que el <header>
+  logoImg.src = './images/assurant_logo.png'; // usa el mismo logo que el <header>
   let logoReady = false;
   logoImg.onload = () => (logoReady = true);
 
