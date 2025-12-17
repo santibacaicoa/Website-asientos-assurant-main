@@ -327,6 +327,8 @@ app.patch('/api/reservas/:id/piso', async (req, res) => {
 // =============================================================================
 // Render te asigna un puerto dinámico (process.env.PORT).
 const PORT = process.env.PORT || 3000;
+
 app.listen(PORT, () => {
-  console.log(`Servidor activo en http://localhost:${PORT}`);
+  console.log(`Servidor activo en puerto ${PORT}`);
 });
+
