@@ -4,6 +4,7 @@
 // - Sirve archivos estáticos (tu frontend)
 // - API Auth (usuarios + admins)
 // - API Reservas (pre-reserva + asignar piso)
+// - DEMO: endpoint temporal /api/demo/setup (crea tablas y pisos)
 // =============================================================================
 
 const express = require('express');
@@ -12,20 +13,105 @@ const bcrypt = require('bcrypt');
 
 const app = express();
 
-// 1) Conexión a PostgreSQL (ajustá SOLO tu password si hace falta)
-const pool = new Pool({
-  user: 'postgres',
-  host: 'localhost',
-  database: 'reservas_oficina',
-  password: 'TuNuevaPasswordSegura',
-  port: 5432,
-});
+// =============================================================================
+// 1) Conexión a PostgreSQL
+// - En Render: usar DATABASE_URL (Environment Variable)
+// - Local: usar credenciales locales como venías usando
+// =============================================================================
+const pool = process.env.DATABASE_URL
+  ? new Pool({
+      connectionString: process.env.DATABASE_URL,
+      // En Render/Supabase/Neon suele requerirse SSL:
+      ssl: { rejectUnauthorized: false },
+    })
+  : new Pool({
+      user: 'postgres',
+      host: 'localhost',
+      database: 'reservas_oficina',
+      password: 'TuNuevaPasswordSegura',
+      port: 5432,
+    });
 
+// =============================================================================
 // 2) Middleware
+// =============================================================================
 app.use(express.json());
 
 // 3) Archivos estáticos (HTML/CSS/JS/Images)
 app.use(express.static(__dirname));
+
+// =============================================================================
+// HEALTHCHECK (para probar deploy rápido)
+// =============================================================================
+app.get('/healthz', (req, res) => {
+  res.json({ ok: true, ts: new Date().toISOString() });
+});
+
+// =============================================================================
+// DEMO SETUP (temporal) - crea tablas si no existen + pisos base
+// Uso: POST /api/demo/setup?key=TU_KEY
+// En Render: definir DEMO_SETUP_KEY en Environment
+// =============================================================================
+app.post('/api/demo/setup', async (req, res) => {
+  const key = req.query.key;
+
+  if (!process.env.DEMO_SETUP_KEY || key !== process.env.DEMO_SETUP_KEY) {
+    return res.status(401).json({ ok: false, error: 'No autorizado' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS usuarios (
+        id SERIAL PRIMARY KEY,
+        username TEXT UNIQUE NOT NULL,
+        nombre TEXT NOT NULL,
+        apellido TEXT NOT NULL,
+        rol TEXT NOT NULL CHECK (rol IN ('user','admin')),
+        password_hash TEXT,
+        creado_en TIMESTAMP DEFAULT now()
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS pisos (
+        id SERIAL PRIMARY KEY,
+        numero INT UNIQUE NOT NULL
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS reservas (
+        id SERIAL PRIMARY KEY,
+        usuario_id INT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+        nombre TEXT NOT NULL,
+        tipo TEXT NOT NULL CHECK (tipo IN ('individual','grupal')),
+        cantidad_asientos INT NOT NULL DEFAULT 1,
+        piso_id INT REFERENCES pisos(id),
+        fecha DATE,
+        estado TEXT NOT NULL DEFAULT 'borrador',
+        creada_en TIMESTAMP DEFAULT now()
+      );
+    `);
+
+    // pisos base (incluye piso 7)
+    await client.query(`
+      INSERT INTO pisos (numero) VALUES (7),(8),(11),(12)
+      ON CONFLICT (numero) DO NOTHING;
+    `);
+
+    await client.query('COMMIT');
+    return res.json({ ok: true, message: 'DB lista (tablas + pisos)' });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Setup error:', err);
+    return res.status(500).json({ ok: false, error: 'Fallo setup' });
+  } finally {
+    client.release();
+  }
+});
 
 // =============================================================================
 // AUTH
@@ -47,7 +133,6 @@ app.post('/api/auth/register-user', async (req, res) => {
     );
     return res.json({ ok: true, user: result.rows[0] });
   } catch (err) {
-    // username unique
     if (err.code === '23505') {
       return res.status(409).json({ ok: false, error: 'Ese username ya existe. Elegí otro.' });
     }
@@ -150,10 +235,8 @@ app.post('/api/auth/login-admin', async (req, res) => {
 
     const admin = result.rows[0];
     const ok = await bcrypt.compare(password, admin.password_hash || '');
-
     if (!ok) return res.status(401).json({ ok: false, error: 'Password incorrecta' });
 
-    // No devolvemos hash
     delete admin.password_hash;
     return res.json({ ok: true, user: admin });
   } catch (err) {
@@ -166,7 +249,7 @@ app.post('/api/auth/login-admin', async (req, res) => {
 // RESERVAS
 // =============================================================================
 
-// Crear pre-reserva vinculada al usuario (luego se completa piso/fecha/asientos)
+// Crear pre-reserva vinculada al usuario
 app.post('/api/pre-reservas', async (req, res) => {
   const { usuario_id, tipo, cantidad_asientos } = req.body || {};
   if (!usuario_id || !tipo) {
@@ -176,7 +259,6 @@ app.post('/api/pre-reservas', async (req, res) => {
   const cant = Number.isFinite(Number(cantidad_asientos)) ? Math.max(1, Number(cantidad_asientos)) : 1;
 
   try {
-    // Traemos el nombre/apellido del usuario para guardar "nombre" también (compatibilidad)
     const u = await pool.query(
       `SELECT id, nombre, apellido FROM usuarios WHERE id = $1`,
       [Number(usuario_id)]
@@ -243,7 +325,8 @@ app.patch('/api/reservas/:id/piso', async (req, res) => {
 // =============================================================================
 // START
 // =============================================================================
-const PORT = 3000;
+// Render te asigna un puerto dinámico (process.env.PORT).
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Servidor activo en http://localhost:${PORT}`);
 });
