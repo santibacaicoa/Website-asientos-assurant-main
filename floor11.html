@@ -4,16 +4,16 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Piso 11</title>
-    <link rel="stylesheet" href="/style.css" />
+    <link rel="stylesheet" href="style.css" />
   </head>
 
   <body>
     <main class="floor-page">
-      <div class="floor-layout">
-        <!-- Sidebar (calendario + volver) -->
+      <section class="floor-layout">
+        <!-- Sidebar -->
         <aside class="floor-side">
           <div class="side-card">
-            <h1 class="side-title">Piso 11</h1>
+            <h2 class="side-title">Piso 11</h2>
 
             <label class="side-label" for="datePick">Fecha</label>
             <input id="datePick" class="side-date" type="date" />
@@ -22,37 +22,53 @@
               Volver / Cambiar usuario
             </button>
 
-            <p id="sideMsg" class="side-msg"></p>
+            <div id="sideMsg" class="side-msg"></div>
 
-            <!-- Ayuda modo edición (solo aparece cuando está activo) -->
+            <!-- Hint de edición (se muestra con tecla E) -->
             <div id="editHint" class="edit-hint is-hidden">
-              <strong>Modo edición activo</strong>
-              <div>
-                Click en el plano → copia coords (%) a consola y portapapeles
-              </div>
-              <div>Shift + Click → agrega un asiento temporal</div>
+              <b>Modo edición:</b> presioná <b>E</b> para activar/desactivar.<br />
+              En edición: <b>Shift + click</b> agrega un punto temporal y copia
+              la coordenada.
             </div>
           </div>
         </aside>
 
         <!-- Mapa -->
-        <section class="floor-map" aria-label="Mapa del piso 11">
-          <img
-            id="floorBg"
-            class="floor-bg"
-            src="/piso11.png"
-            alt="Plano piso 11"
-            draggable="false"
-          />
+        <section class="floor-main">
+          <div class="floor-map" id="floorMap">
+            <!--panel de agregar asientos-->
+            <div id="editPanel" class="edit-panel is-hidden">
+              <strong>🛠 Modo edición</strong>
 
-          <div id="seatsLayer" class="seats-layer" aria-label="Asientos"></div>
+              <div class="edit-row">
+                Asiento: <span id="editSeatId">11-01</span>
+              </div>
 
-          <!-- Cursor/tooltip de edición -->
-          <div id="editCursor" class="edit-cursor is-hidden"></div>
+              <div class="edit-row">X: <span id="editX">0</span> %</div>
+
+              <div class="edit-row">Y: <span id="editY">0</span> %</div>
+
+              <button id="btnSaveSeat">Guardar asiento</button>
+              <button id="btnUndoSeat">Deshacer último</button>
+              <button id="btnExitEdit">Salir edición</button>
+            </div>
+            <!--cierre panel-->
+
+            <img
+              id="floorBg"
+              class="floor-bg"
+              src="/images/piso11.png"
+              alt="Plano piso 11"
+              draggable="false"
+            />
+
+            <div id="seatsLayer" class="seats-layer"></div>
+            <div id="editCursor" class="edit-cursor is-hidden"></div>
+          </div>
         </section>
-      </div>
+      </section>
     </main>
 
-    <script src="/floor11.js"></script>
+    <script src="floor11.js"></script>
   </body>
 </html>

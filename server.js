@@ -1,10 +1,10 @@
-// server.js
+// server.js (LOCAL ONLY)
 // =============================================================================
-// Servidor Node.js + Express
+// Servidor Node.js + Express (LOCAL)
 // - Sirve archivos estáticos (tu frontend)
-// - API Auth (usuarios + admins)
-// - API Reservas (pre-reserva + asignar piso)
-// - DEMO: endpoint temporal /api/demo/setup (crea tablas y pisos)
+// - Conecta a PostgreSQL local (localhost)
+// - Crea tablas automáticamente al iniciar (IF NOT EXISTS)
+// - Inserta pisos base (7, 8, 11, 12)
 // =============================================================================
 
 const express = require('express');
@@ -14,51 +14,26 @@ const bcrypt = require('bcrypt');
 const app = express();
 
 // =============================================================================
-// 1) Conexión a PostgreSQL
-// - En Render: usar DATABASE_URL (Environment Variable)
-// - Local: usar credenciales locales como venías usando
+// 1) Conexión a PostgreSQL LOCAL (solo localhost)
 // =============================================================================
-const pool = process.env.DATABASE_URL
-  ? new Pool({
-      connectionString: process.env.DATABASE_URL,
-      // En Render/Supabase/Neon suele requerirse SSL:
-      ssl: { rejectUnauthorized: false },
-    })
-  : new Pool({
-      user: 'postgres',
-      host: 'localhost',
-      database: 'reservas_oficina',
-      password: 'TuNuevaPasswordSegura',
-      port: 5432,
-    });
+const pool = new Pool({
+  user: 'postgres',
+  host: 'localhost',
+  database: 'reservas_oficina',
+  password: 'TuNuevaPasswordSegura',
+  port: 5432,
+});
 
 // =============================================================================
 // 2) Middleware
 // =============================================================================
 app.use(express.json());
-
-// 3) Archivos estáticos (HTML/CSS/JS/Images)
 app.use(express.static(__dirname));
 
 // =============================================================================
-// HEALTHCHECK (para probar deploy rápido)
+// 3) Inicialización DB (crea tablas si no existen + pisos base)
 // =============================================================================
-app.get('/healthz', (req, res) => {
-  res.json({ ok: true, ts: new Date().toISOString() });
-});
-
-// =============================================================================
-// DEMO SETUP (temporal) - crea tablas si no existen + pisos base
-// Uso: POST /api/demo/setup?key=TU_KEY
-// En Render: definir DEMO_SETUP_KEY en Environment
-// =============================================================================
-app.post('/api/demo/setup', async (req, res) => {
-  const key = req.query.key;
-
-  if (!process.env.DEMO_SETUP_KEY || key !== process.env.DEMO_SETUP_KEY) {
-    return res.status(401).json({ ok: false, error: 'No autorizado' });
-  }
-
+async function initDb() {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -96,20 +71,46 @@ app.post('/api/demo/setup', async (req, res) => {
       );
     `);
 
-    // pisos base (incluye piso 7)
     await client.query(`
       INSERT INTO pisos (numero) VALUES (7),(8),(11),(12)
       ON CONFLICT (numero) DO NOTHING;
     `);
 
     await client.query('COMMIT');
-    return res.json({ ok: true, message: 'DB lista (tablas + pisos)' });
+    console.log('✅ DB inicializada (tablas OK + pisos base OK)');
   } catch (err) {
     await client.query('ROLLBACK');
-    console.error('Setup error:', err);
-    return res.status(500).json({ ok: false, error: 'Fallo setup' });
+    console.error('❌ Error inicializando DB:', err);
+    throw err;
   } finally {
     client.release();
+  }
+}
+
+// =============================================================================
+// HEALTHCHECK + DEBUG DB
+// =============================================================================
+app.get('/healthz', (req, res) => {
+  res.json({ ok: true, ts: new Date().toISOString() });
+});
+
+app.get('/api/debug/db', async (req, res) => {
+  try {
+    const r1 = await pool.query('SELECT current_database() AS db');
+    const r2 = await pool.query(`
+      SELECT table_name
+      FROM information_schema.tables
+      WHERE table_schema = 'public'
+      ORDER BY table_name;
+    `);
+
+    res.json({
+      ok: true,
+      database: r1.rows[0].db,
+      tables: r2.rows.map(x => x.table_name),
+    });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message, code: err.code });
   }
 });
 
@@ -325,10 +326,16 @@ app.patch('/api/reservas/:id/piso', async (req, res) => {
 // =============================================================================
 // START
 // =============================================================================
-// Render te asigna un puerto dinámico (process.env.PORT).
-const PORT = process.env.PORT || 3000;
+const PORT = 3000;
 
-app.listen(PORT, () => {
-  console.log(`Servidor activo en puerto ${PORT}`);
-});
-
+initDb()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`Servidor activo en http://localhost:${PORT}`);
+      console.log(`Debug DB: http://localhost:${PORT}/api/debug/db`);
+    });
+  })
+  .catch(() => {
+    console.error('❌ No se pudo iniciar el servidor por error de DB.');
+    process.exit(1);
+  });
