@@ -19,10 +19,8 @@
   }
 
   // ==========================
-  // 1) Tus asientos (62) ya listos
+  // 1) Tus asientos
   // ==========================
-  // IMPORTANTE: este archivo asume que acá tenés tu array completo.
-  // Si ya lo tenías armado, dejalo tal cual lo tenés.
   const SEATS_11 = [
 { id: "11-01", x: 1.8, y: 25.3 },
 { id: "11-02", x: 5.6, y: 25.3 },
@@ -114,12 +112,25 @@
   const setMsg = (t) => (sideMsg.textContent = t || "");
   const todayISO = () => new Date().toISOString().slice(0, 10);
 
+  // ✅ Lee reserva.tipo sea JSON o texto plano
+  function getReservaTipo() {
+    const raw = localStorage.getItem("reserva.tipo");
+    if (!raw) return null;
+
+    try {
+      const parsed = JSON.parse(raw);
+      return typeof parsed === "string" ? parsed : null;
+    } catch {
+      return raw;
+    }
+  }
+
   // ==========================
   // Estado
   // ==========================
-  const seatEls = new Map();            // id -> button
-  let occupied = new Set();             // ocupados definitivos de DB
-  let selected = new Set();             // selección temporal (cine)
+  const seatEls = new Map(); // id -> button
+  let occupied = new Set(); // ocupados definitivos de DB
+  let selected = new Set(); // selección temporal (cine)
 
   // Modo edición
   let editMode = false;
@@ -129,6 +140,38 @@
     const has = selected.size > 0;
     btnConfirm.disabled = !has;
     btnClearSel.disabled = !has;
+  }
+
+  // ==========================
+  // Tooltip (mostrar quién reservó)
+  // ==========================
+  const occupiedByName = new Map(); // asiento_id -> "Nombre Apellido"
+  let tooltipEl = null;
+
+  function ensureTooltip() {
+    if (tooltipEl) return;
+    tooltipEl = document.createElement("div");
+    tooltipEl.className = "seat-tooltip is-hidden";
+    document.body.appendChild(tooltipEl);
+  }
+
+  function showTooltip(text, ev) {
+    ensureTooltip();
+    tooltipEl.textContent = text;
+    tooltipEl.classList.remove("is-hidden");
+    moveTooltip(ev);
+  }
+
+  function moveTooltip(ev) {
+    if (!tooltipEl || tooltipEl.classList.contains("is-hidden")) return;
+    const pad = 14;
+    tooltipEl.style.left = `${ev.clientX + pad}px`;
+    tooltipEl.style.top = `${ev.clientY + pad}px`;
+  }
+
+  function hideTooltip() {
+    if (!tooltipEl) return;
+    tooltipEl.classList.add("is-hidden");
   }
 
   function applySeatClasses() {
@@ -141,6 +184,14 @@
 
       // selección temporal (cine)
       btn.classList.toggle("is-selected", isSel);
+
+      // title fallback
+      if (isOcc) {
+        const who = occupiedByName.get(id);
+        btn.title = who ? `${id} • ${who}` : id;
+      } else {
+        btn.title = id;
+      }
 
       // ocupado => disable total
       btn.disabled = isOcc;
@@ -165,15 +216,45 @@
 
       b.addEventListener("click", (ev) => {
         ev.stopPropagation();
-        if (editMode) return; // en edición no reservamos
+        if (editMode) return;
         if (occupied.has(s.id)) return;
 
-        // toggle cine
-        if (selected.has(s.id)) selected.delete(s.id);
-        else selected.add(s.id);
+        const tipo = getReservaTipo(); // "individual" | "grupal" | null
+
+        // ✅ Reserva individual: solo 1 asiento
+        if (tipo === "individual") {
+          if (selected.has(s.id)) {
+            selected.clear();
+          } else {
+            selected.clear();
+            selected.add(s.id);
+          }
+        } else {
+          // ✅ Reserva grupal: toggle normal
+          if (selected.has(s.id)) selected.delete(s.id);
+          else selected.add(s.id);
+        }
 
         updateSelectionUI();
         applySeatClasses();
+      });
+
+      // Hover: si está ocupado, mostramos quién lo reservó
+      b.addEventListener("mouseenter", (ev) => {
+        if (editMode) return;
+        if (!occupied.has(s.id)) return;
+        const who = occupiedByName.get(s.id);
+        if (!who) return;
+        showTooltip(who, ev);
+      });
+
+      b.addEventListener("mousemove", (ev) => {
+        if (editMode) return;
+        moveTooltip(ev);
+      });
+
+      b.addEventListener("mouseleave", () => {
+        hideTooltip();
       });
 
       seatEls.set(s.id, b);
@@ -184,7 +265,7 @@
   }
 
   // ==========================
-  // Backend: cargar ocupados
+  // Backend: cargar ocupados + nombre
   // ==========================
   async function loadOccupied() {
     const fecha = datePick.value;
@@ -192,7 +273,7 @@
 
     try {
       setMsg("Cargando disponibilidad…");
-      const r = await fetch(`/api/asientos/ocupados?piso=11&fecha=${encodeURIComponent(fecha)}`);
+      const r = await fetch(`/api/asientos/ocupados-info?piso=11&fecha=${encodeURIComponent(fecha)}`);
       const j = await r.json().catch(() => null);
 
       if (!r.ok || !j?.ok) {
@@ -200,9 +281,16 @@
         return;
       }
 
-      occupied = new Set(j.ocupados || []);
+      // j.ocupados viene como [{ asiento_id, nombre }]
+      occupiedByName.clear();
+      const rows = Array.isArray(j.ocupados) ? j.ocupados : [];
+      occupied = new Set(rows.map((row) => row.asiento_id));
 
-      // si lo seleccionado quedó ocupado (porque alguien reservó antes), lo sacamos
+      for (const row of rows) {
+        if (row?.asiento_id) occupiedByName.set(row.asiento_id, row?.nombre || "");
+      }
+
+      // si lo seleccionado quedó ocupado, lo sacamos
       selected.forEach((id) => {
         if (occupied.has(id)) selected.delete(id);
       });
@@ -237,8 +325,7 @@
       return;
     }
 
-    // Si es individual, forzamos 1 asiento
-    const tipo = JSON.parse(localStorage.getItem("reserva.tipo") || "null");
+    const tipo = getReservaTipo();
     if (tipo === "individual" && selected.size > 1) {
       setMsg("Reserva individual: elegí 1 solo asiento.");
       return;
@@ -264,18 +351,15 @@
 
       if (!r.ok || !j?.ok) {
         setMsg(j?.error || "No se pudo confirmar");
-        // si hay conflicto, recargamos ocupados
         if (r.status === 409) await loadOccupied();
         updateSelectionUI();
         return;
       }
 
-      // éxito: pasan a ocupados definitivos
-      asientos.forEach((id) => occupied.add(id));
+      // éxito: limpiamos selección y recargamos ocupados (trae también los nombres)
       selected.clear();
-
-      applySeatClasses();
       updateSelectionUI();
+      await loadOccupied();
 
       setMsg("✅ Reserva confirmada");
     } catch (e) {
@@ -303,11 +387,8 @@
   });
 
   datePick.addEventListener("change", async () => {
-    // al cambiar fecha:
-    // 1) limpiamos selección
     selected.clear();
     updateSelectionUI();
-    // 2) traemos ocupados
     await loadOccupied();
   });
 
@@ -328,6 +409,7 @@
     if (ev.key.toLowerCase() !== "e") return;
     editMode = !editMode;
     editHint?.classList.toggle("is-hidden", !editMode);
+    if (!editMode) hideTooltip();
     setMsg(editMode ? "🛠️ Modo edición ON (no reserva)" : "");
   });
 

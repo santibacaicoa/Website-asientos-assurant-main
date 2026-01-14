@@ -6,6 +6,8 @@ const bcrypt = require("bcrypt");
 
 const app = express();
 app.use(express.json());
+
+// Static (importantísimo para /images/...)
 app.use(express.static(path.join(__dirname)));
 
 const pool = new Pool({
@@ -58,8 +60,6 @@ app.get("/api/setup-local", async (req, res) => {
   try {
     await client.query("BEGIN");
 
-    // ✅ RESET FUERTE (CASCADE) SOLO SI reset=1
-    // Esto elimina dependencias automáticamente.
     if (reset) {
       await client.query(`DROP TABLE IF EXISTS reservas_asientos CASCADE;`);
       await client.query(`DROP TABLE IF EXISTS reservas CASCADE;`);
@@ -86,7 +86,6 @@ app.get("/api/setup-local", async (req, res) => {
       );
     `);
 
-    // ✅ IMPORTANTE: estado con CHECK que incluye 'confirmada'
     await client.query(`
       CREATE TABLE IF NOT EXISTS reservas (
         id SERIAL PRIMARY KEY,
@@ -312,8 +311,7 @@ app.get("/api/asientos/ocupados", async (req, res) => {
     if (!pisoId) return res.status(404).json({ ok: false, error: "Piso no existe" });
 
     const q = await pool.query(
-      `SELECT asiento_id
-       FROM reservas_asientos
+      `SELECT asiento_id FROM reservas_asientos
        WHERE piso_id=$1 AND fecha=$2
        ORDER BY asiento_id ASC`,
       [pisoId, fecha]
@@ -326,6 +324,37 @@ app.get("/api/asientos/ocupados", async (req, res) => {
   }
 });
 
+// ✅ NUEVO: ocupados + nombre (para tooltip)
+app.get("/api/asientos/ocupados-info", async (req, res) => {
+  const pisoNum = Number(req.query.piso);
+  const fecha = String(req.query.fecha || "").trim();
+  if (!pisoNum || !fecha) return res.status(400).json({ ok: false, error: "Faltan piso/fecha" });
+
+  try {
+    const pisoId = await getPisoId(pisoNum);
+    if (!pisoId) return res.status(404).json({ ok: false, error: "Piso no existe" });
+
+    const q = await pool.query(
+      `SELECT ra.asiento_id, r.nombre
+       FROM reservas_asientos ra
+       JOIN reservas r ON r.id = ra.reserva_id
+       WHERE ra.piso_id=$1 AND ra.fecha=$2
+       ORDER BY ra.asiento_id ASC`,
+      [pisoId, fecha]
+    );
+
+    res.json({ ok: true, ocupados: q.rows });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: "Error consultando ocupados" });
+  }
+});
+
+// --------------------
+// Confirmar asientos seleccionados (modo cine)
+// POST /api/asientos/confirmar
+// body: { reserva_id, piso, fecha, asientos: ["11-01","11-02"] }
+// --------------------
 app.post("/api/asientos/confirmar", async (req, res) => {
   const reservaId = Number(req.body?.reserva_id);
   const pisoNum = Number(req.body?.piso);

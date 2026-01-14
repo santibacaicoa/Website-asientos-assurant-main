@@ -944,6 +944,32 @@ box-shadow: none;
   outline: 2px solid rgba(255,255,255,.7);
 }
 
+/* Tooltip asientos ocupados (hover) */
+.seat-tooltip{
+  position: fixed;
+  z-index: 99999;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,.25);
+  background: rgba(0,0,0,.72);
+  color: #fff;
+  font-size: 0.9rem;
+  line-height: 1.1;
+  box-shadow: 0 14px 40px rgba(0,0,0,.35);
+  pointer-events: none;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+/* Si no lo tenías ya en tu CSS */
+.is-hidden{ display:none !important; }
+
+/* (Opcional) estado de selección temporal */
+.seat.is-selected{
+  background: rgba(220, 70, 70, .85);
+  box-shadow: 0 0 0 3px rgba(255,255,255,.25), 0 10px 22px rgba(0,0,0,.35);
+}
+
 
 /* ==========================================================================
    RESPONSIVE
