@@ -1,33 +1,25 @@
-// =====================================================
 // floor11.js
-// - Renderiza asientos encima del plano (por %)
-// - Calendario para seleccionar fecha
-// - Botón volver/cambiar usuario
-// - Modo edición (tecla E) para sacar coordenadas fácil
-//   * Shift+Click: agrega punto TEMP + acumula
-//   * Click normal: copia el último punto (sin agregar)
-//   * HUD: copiar último / copiar todo / borrar lista
-// =====================================================
-
-(function () {
-  const seatsLayer = document.getElementById("seatsLayer");
-  const floorMap = document.querySelector(".floor-map");
-  const datePick = document.getElementById("datePick");
-  const btnBackHome = document.getElementById("btnBackHome");
-  const sideMsg = document.getElementById("sideMsg");
+(() => {
+  const seatLayer = document.getElementById("seatsLayer");
+  const datePick = document.getElementById("datePicker");
+  const msg = document.getElementById("sideMsg");
+  const backBtn = document.getElementById("btnBack");
+  const floorMap = document.getElementById("floorMap");
+  const editBtn = document.getElementById("btnEdit");
   const editHint = document.getElementById("editHint");
   const editCursor = document.getElementById("editCursor");
+  const btnCopyPoints = document.getElementById("btnCopyPoints");
+  const editCount = document.getElementById("editCount");
 
-  if (!seatsLayer || !floorMap || !datePick || !btnBackHome || !sideMsg) {
-    console.warn("[floor11.js] Faltan elementos en el HTML. Revisá IDs/clases.");
-    return;
-  }
-
-  // ✅ Acá van los 62 asientos del piso 11 con coordenadas (%) (x=left, y=top)
-  // Ejemplo: { id: "11-01", x: 33.2, y: 62.5 }
-  const SEATS_11 = [
-    // TODO: completar 62
-    { id: "11-01", x: 1.8, y: 25.3 }
+  // ====== Tus asientos (NO los toco) ======
+  // Asegurate de que tu SEATS_11 esté completo como lo dejaste (62 asientos)
+  // Ejemplo:
+  // const SEATS_11 = [
+  //   { id: "11-01", x: 33.0, y: 62.0 },
+  //   ...
+  // ];
+  const SEATS_11 = window.SEATS_11 || [
+{ id: "11-01", x: 1.8, y: 25.3 },
 { id: "11-02", x: 5.6, y: 25.3 },
 { id: "11-03", x: 10.2, y: 25.2 },
 { id: "11-04", x: 14.9, y: 25.2 },
@@ -87,11 +79,11 @@
 { id: "11-58", x: 64.6, y: 86.0 },
 { id: "11-59", x: 68.9, y: 86.2 },
 { id: "11-60", x: 72.8, y: 86.0 },
-{ id: "11-61", x: 79.0, y: 47.8 },
+{ id: "11-61", x: 80.0, y: 47.8 },
 { id: "11-62", x: 84.5, y: 47.8 },
 { id: "11-63", x: 89.2, y: 47.8 },
 { id: "11-64", x: 93.8, y: 47.3 },
-{ id: "11-65", x: 79.6, y: 52.5 },
+{ id: "11-65", x: 80, y: 52.5 },
 { id: "11-66", x: 84.5, y: 52.6 },
 { id: "11-67", x: 89.4, y: 52.3 },
 { id: "11-68", x: 93.7, y: 52.3 },
@@ -103,288 +95,262 @@
 { id: "11-74", x: 84.8, y: 35.8 },
 { id: "11-75", x: 89.3, y: 36.0 },
 { id: "11-76", x: 93.7, y: 35.5 },
-{ id: "11-77", x: 86.3, y: 9.0 },
+{ id: "11-77", x: 86, y: 8.6 },
 { id: "11-78", x: 89.2, y: 8.6 },
-{ id: "11-79", x: 86.0, y: 14.0 },
-{ id: "11-80", x: 88.9, y: 14.3 },
-{ id: "11-81", x: 86.0, y: 19.6 },
-{ id: "11-82", x: 89.4, y: 19.3 }
-  ];
+{ id: "11-79", x: 86.0, y: 14.3 },
+{ id: "11-80", x: 89.4, y: 14.3 },
+{ id: "11-81", x: 86.0, y: 19 },
+{ id: "11-82", x: 89.4, y: 19 }
+]; // si vos ya lo tenés definido acá, reemplazá esta línea por tu array
 
-  function setMsg(text) {
-    sideMsg.textContent = text || "";
+  function setMsg(t) {
+    if (!msg) return;
+    msg.textContent = t || "";
   }
 
   function setDefaultDate() {
+    if (!datePick) return;
     const today = new Date();
-    datePick.value = today.toISOString().slice(0, 10);
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, "0");
+    const dd = String(today.getDate()).padStart(2, "0");
+    datePick.value = `${yyyy}-${mm}-${dd}`;
   }
 
-  function renderSeats() {
-    seatsLayer.innerHTML = "";
-    for (const s of SEATS_11) {
-      const b = document.createElement("button");
-      b.type = "button";
-      b.className = "seat is-free";
-      b.style.left = s.x + "%";
-      b.style.top = s.y + "%";
-      b.dataset.seatId = s.id;
-      b.title = s.id;
+  // Estado de ocupación (viene del backend)
+  const seatEls = new Map(); // asiento_id -> button
+  let busySet = new Set(); // Set(asiento_id)
 
-      b.addEventListener("click", () => {
-        if (b.classList.contains("is-busy")) return;
-        console.log("Seat click:", s.id, "Fecha:", datePick.value);
-        // Próximo paso: seleccionar / reservar con backend
-      });
-
-      seatsLayer.appendChild(b);
-    }
+  function updateSeatClasses() {
+    seatEls.forEach((btn, asientoId) => {
+      const busy = busySet.has(asientoId);
+      btn.classList.toggle("is-busy", busy);
+      btn.classList.toggle("is-free", !busy);
+      btn.disabled = busy;
+    });
   }
 
-  // =====================================================
-  // Volver / Cambiar usuario
-  // =====================================================
-  btnBackHome.addEventListener("click", () => {
-    window.location.href = "home.html";
-  });
+  async function loadBusySeats() {
+    const fecha = datePick?.value;
+    if (!fecha) return;
 
-  // =====================================================
-  // Calendario
-  // =====================================================
-  datePick.addEventListener("change", () => {
-    const date = datePick.value;
-    setMsg(date ? `Viendo disponibilidad para: ${date}` : "");
-    // Próximo paso: fetch al backend para asientos ocupados por fecha
-  });
-
-  // =====================================================
-  // MODO EDICIÓN (TOGGLE con tecla E)
-  // =====================================================
-  const params = new URLSearchParams(window.location.search);
-  let editEnabled = params.get("edit") === "1";
-
-  // ---- Lista de puntos acumulados (para copiar todo)
-  const collected = [];
-  let nextIdNumber = 1; // 👈 si querés arrancar desde 1 siempre. Si querés 63, poné 63.
-
-  function pad2(n) {
-    return String(n).padStart(2, "0");
-  }
-
-  function formatLine(item) {
-    // item: { id, x, y }
-    // OJO: vos pediste 33.0 (un decimal). Usamos 1 decimal.
-    const x = Number(item.x).toFixed(1);
-    const y = Number(item.y).toFixed(1);
-    return `{ id: "${item.id}", x: ${x}, y: ${y} }`;
-  }
-
-  function getPercentCoords(e) {
-    const rect = floorMap.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 100;
-    const y = ((e.clientY - rect.top) / rect.height) * 100;
-    return { x: +x.toFixed(2), y: +y.toFixed(2) };
-  }
-
-  async function copyText(text) {
     try {
-      await navigator.clipboard.writeText(text);
-      setMsg("Copiado ✅");
-      setTimeout(() => setMsg(""), 900);
-      return true;
-    } catch {
-      setMsg("No pude copiar (clipboard bloqueado). Mirá consola.");
-      setTimeout(() => setMsg(""), 1200);
-      return false;
+      setMsg("Cargando disponibilidad…");
+      const r = await fetch(`/api/asientos/ocupados?piso=11&fecha=${encodeURIComponent(fecha)}`);
+      const j = await r.json().catch(() => null);
+
+      if (!r.ok || !j?.ok) {
+        setMsg(j?.error || "No se pudo cargar disponibilidad");
+        return;
+      }
+
+      busySet = new Set(j.ocupados || []);
+      updateSeatClasses();
+      setMsg("");
+    } catch (err) {
+      console.error(err);
+      setMsg("Error cargando disponibilidad");
     }
   }
 
-  // =====================================================
-  // HUD (mini pantallita) con botones
-  // =====================================================
-  const hud = document.createElement("div");
-  hud.id = "editHud";
-  hud.style.position = "fixed";
-  hud.style.left = "14px";
-  hud.style.top = "14px";
-  hud.style.zIndex = "9999";
-  hud.style.width = "320px";
-  hud.style.padding = "12px";
-  hud.style.borderRadius = "12px";
-  hud.style.border = "1px solid rgba(255,255,255,.25)";
-  hud.style.background = "rgba(0,0,0,.55)";
-  hud.style.backdropFilter = "blur(8px)";
-  hud.style.webkitBackdropFilter = "blur(8px)";
-  hud.style.color = "#fff";
-  hud.style.fontFamily = "system-ui, -apple-system, Segoe UI, Roboto, Arial";
-  hud.style.fontSize = "13px";
-  hud.style.lineHeight = "1.25";
-  hud.style.boxShadow = "0 14px 38px rgba(0,0,0,.35)";
-  hud.style.display = "none";
-
-  hud.innerHTML = `
-    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
-      <div style="font-weight:700;">EDIT: <span id="hudState">OFF</span></div>
-      <div style="opacity:.9;">Puntos: <span id="hudCount">0</span></div>
-    </div>
-
-    <div style="margin-top:8px;">Mouse: <span id="hudXY">x: --  y: --</span></div>
-
-    <div style="margin-top:10px; opacity:.92;">Último:</div>
-    <pre id="hudLast" style="
-      margin:6px 0 10px;
-      padding:8px;
-      border-radius:10px;
-      background: rgba(255,255,255,.10);
-      border: 1px solid rgba(255,255,255,.15);
-      white-space: pre-wrap;
-      word-break: break-word;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
-      font-size: 12px;
-    ">-</pre>
-
-    <div style="display:flex; gap:8px; flex-wrap:wrap;">
-      <button id="btnCopyLast" type="button" style="flex:1; min-width:140px; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.10); color:#fff; cursor:pointer;">Copiar último</button>
-      <button id="btnCopyAll" type="button" style="flex:1; min-width:140px; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.10); color:#fff; cursor:pointer;">Copiar todo</button>
-      <button id="btnClear" type="button" style="width:100%; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.08); color:#fff; cursor:pointer;">Borrar lista</button>
-    </div>
-
-    <div style="margin-top:10px; opacity:.85;">
-      Tip: <b>E</b> toggle · <b>Shift+Click</b> agrega punto + lo acumula
-    </div>
-  `;
-
-  document.body.appendChild(hud);
-
-  const hudState = hud.querySelector("#hudState");
-  const hudXY = hud.querySelector("#hudXY");
-  const hudCount = hud.querySelector("#hudCount");
-  const hudLast = hud.querySelector("#hudLast");
-  const btnCopyLast = hud.querySelector("#btnCopyLast");
-  const btnCopyAll = hud.querySelector("#btnCopyAll");
-  const btnClear = hud.querySelector("#btnClear");
-
-  let lastLine = "";
-
-  function updateHud() {
-    if (hudCount) hudCount.textContent = String(collected.length);
-    if (hudLast) hudLast.textContent = lastLine || "-";
-  }
-
-  function setEditUI(on) {
-    if (editHint) editHint.classList.toggle("is-hidden", !on);
-    if (editCursor) editCursor.classList.toggle("is-hidden", !on);
-    hud.style.display = on ? "block" : "none";
-    if (hudState) hudState.textContent = on ? "ON" : "OFF";
-  }
-
-  setEditUI(editEnabled);
-  updateHud();
-
-  function isTypingInInput() {
-    const el = document.activeElement;
-    if (!el) return false;
-    const tag = (el.tagName || "").toLowerCase();
-    return tag === "input" || tag === "textarea" || el.isContentEditable;
-  }
-
-  document.addEventListener("keydown", (e) => {
-    if (isTypingInInput()) return;
-    if (e.key === "e" || e.key === "E") {
-      editEnabled = !editEnabled;
-      setEditUI(editEnabled);
-      setMsg(editEnabled ? "Modo edición ACTIVADO" : "Modo edición DESACTIVADO");
-      setTimeout(() => setMsg(""), 800);
-    }
-  });
-
-  // Cursor + coords
-  floorMap.addEventListener("mousemove", (e) => {
-    if (!editEnabled) return;
-
-    if (editCursor) {
-      const rect = floorMap.getBoundingClientRect();
-      editCursor.style.left = e.clientX - rect.left + "px";
-      editCursor.style.top = e.clientY - rect.top + "px";
-    }
-
-    const { x, y } = getPercentCoords(e);
-    if (hudXY) hudXY.textContent = `x: ${x}  y: ${y}`;
-  });
-
-  // Botones HUD
-  btnCopyLast.addEventListener("click", async () => {
-    if (!lastLine) return setMsg("No hay último para copiar");
-    console.log("COPY LAST:\n" + lastLine);
-    await copyText(lastLine);
-  });
-
-  btnCopyAll.addEventListener("click", async () => {
-    if (collected.length === 0) return setMsg("No hay puntos para copiar");
-    const all = collected.map(formatLine).join("\n");
-    console.log("COPY ALL:\n" + all);
-    await copyText(all);
-    if (hudLast) hudLast.textContent = all; // preview (opcional)
-  });
-
-  btnClear.addEventListener("click", () => {
-    collected.length = 0;
-    nextIdNumber = 1;
-    lastLine = "";
-    updateHud();
-
-    // borra los TEMP dibujados (los que tengan data-temp="1")
-    seatsLayer.querySelectorAll('.seat[data-temp="1"]').forEach((el) => el.remove());
-
-    setMsg("Lista borrada ✅");
-    setTimeout(() => setMsg(""), 800);
-  });
-
-  // Click en el plano
-  floorMap.addEventListener("click", async (e) => {
-    if (!editEnabled) return;
-
-    // Si clickeaste un asiento real, no hagas nada de edición
-    if (e.target && e.target.classList && e.target.classList.contains("seat")) return;
-
-    const { x, y } = getPercentCoords(e);
-
-    // SHIFT+CLICK: agrega a lista + dibuja TEMP
-    if (e.shiftKey) {
-      const id = `11-${pad2(nextIdNumber++)}`;
-      const item = { id, x, y };
-      collected.push(item);
-
-      lastLine = formatLine(item);
-      updateHud();
-
-      console.log("ADD:", lastLine);
-
-      // dibuja punto temporal
-      const b = document.createElement("button");
-      b.type = "button";
-      b.className = "seat is-free";
-      b.style.left = x + "%";
-      b.style.top = y + "%";
-      b.title = `TEMP ${id}`;
-      b.dataset.temp = "1";
-      seatsLayer.appendChild(b);
-
-      // Copia automática del último agregado (si querés que NO copie solo, borrá estas 2 líneas)
-      await copyText(lastLine);
+  async function reservarAsiento(asientoId) {
+    const reservaId = JSON.parse(localStorage.getItem("reserva.id") || "null");
+    if (!reservaId) {
+      setMsg("No encontré la reserva. Volvé al inicio y reintentá.");
       return;
     }
 
-    // Click normal: NO agrega, solo prepara "último" para copiar
-    lastLine = `{ id: "11-XX", x: ${Number(x).toFixed(1)}, y: ${Number(y).toFixed(1)} }`;
-    updateHud();
-    console.log("COORD (solo preview):", lastLine);
+    const fecha = datePick?.value;
+    if (!fecha) {
+      setMsg("Elegí una fecha primero.");
+      return;
+    }
 
-    // Si querés que el click normal copie también, descomentá:
-    // await copyText(lastLine);
+    try {
+      setMsg("Reservando…");
+      const r = await fetch("/api/asientos/reservar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reserva_id: reservaId,
+          piso: 11,
+          fecha,
+          asiento_id: asientoId,
+        }),
+      });
+
+      const j = await r.json().catch(() => null);
+
+      if (!r.ok || !j?.ok) {
+        setMsg(j?.error || "No se pudo reservar");
+        if (r.status === 409) {
+          await loadBusySeats(); // deja UI consistente
+        }
+        return;
+      }
+
+      busySet.add(asientoId);
+      updateSeatClasses();
+      setMsg("✅ Asiento reservado");
+    } catch (err) {
+      console.error(err);
+      setMsg("Error reservando asiento");
+    }
+  }
+
+  function renderSeats() {
+    if (!seatLayer) return;
+    seatLayer.innerHTML = "";
+    seatEls.clear();
+
+    SEATS_11.forEach((s) => {
+      const b = document.createElement("button");
+      b.className = "seat is-free";
+      b.type = "button";
+      b.dataset.seat = s.id;
+      b.style.left = `${s.x}%`;
+      b.style.top = `${s.y}%`;
+      b.title = s.id;
+      seatEls.set(s.id, b);
+
+      b.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        if (editMode) return; // en modo edición no reservamos
+        if (busySet.has(s.id)) return;
+        reservarAsiento(s.id);
+      });
+
+      seatLayer.appendChild(b);
+    });
+  }
+
+  // ---- Botón volver ----
+  if (backBtn) {
+    backBtn.addEventListener("click", () => {
+      // si querés limpiar la sesión completa, descomentá:
+      // localStorage.removeItem("session.user");
+      // localStorage.removeItem("reserva.id");
+      // localStorage.removeItem("reserva.floor");
+      window.location.href = "home.html";
+    });
+  }
+
+  // ==========================================================
+  // MODO EDICIÓN (E) + SHIFT CLICK para capturar coordenadas
+  // ==========================================================
+  let editMode = false;
+  let tempIdCounter = 1;
+  const captured = []; // acumulados
+  let pendingSeatEl = null;
+
+  function fmt(num) {
+    return Math.round(num * 10) / 10;
+  }
+
+  function seatIdFromCounter(n) {
+    const padded = String(n).padStart(2, "0");
+    return `11-${padded}`;
+  }
+
+  function updateEditUI() {
+    if (editHint) editHint.classList.toggle("is-hidden", !editMode);
+    if (btnCopyPoints) btnCopyPoints.classList.toggle("is-hidden", !editMode);
+    if (editCount) editCount.textContent = String(captured.length);
+    if (!editMode && editCursor) editCursor.classList.add("is-hidden");
+  }
+
+  function placeCursor(xPercent, yPercent) {
+    if (!editCursor) return;
+    editCursor.classList.remove("is-hidden");
+    editCursor.style.left = `${xPercent}%`;
+    editCursor.style.top = `${yPercent}%`;
+  }
+
+  function getPercentFromEvent(ev) {
+    const rect = floorMap.getBoundingClientRect();
+    const x = ((ev.clientX - rect.left) / rect.width) * 100;
+    const y = ((ev.clientY - rect.top) / rect.height) * 100;
+    return { x: fmt(x), y: fmt(y) };
+  }
+
+  function openMiniPrompt(x, y) {
+    // mini “pantallita” sin librerías: confirm() + prompt()
+    const nextId = seatIdFromCounter(tempIdCounter);
+    const ok = confirm(`¿Guardar punto?\nID sugerido: ${nextId}\nx: ${x} / y: ${y}`);
+    if (!ok) return;
+
+    const custom = prompt("Podés editar el ID si querés (Enter para usar el sugerido):", nextId);
+    const finalId = (custom || nextId).trim() || nextId;
+
+    captured.push({ id: finalId, x, y });
+    tempIdCounter++;
+
+    console.log("[PUNTO]", { id: finalId, x, y });
+    setMsg(`Guardado ${finalId}  (x:${x} y:${y})`);
+    if (editCount) editCount.textContent = String(captured.length);
+  }
+
+  // Tecla E para activar/desactivar
+  window.addEventListener("keydown", (ev) => {
+    if (ev.key.toLowerCase() !== "e") return;
+    editMode = !editMode;
+    pendingSeatEl = null;
+    setMsg(editMode ? "🛠️ Modo edición ON (SHIFT+Click para capturar)" : "");
+    updateEditUI();
   });
+
+  // Mostrar cursor mientras movés mouse (solo en edición)
+  if (floorMap) {
+    floorMap.addEventListener("mousemove", (ev) => {
+      if (!editMode) return;
+      const { x, y } = getPercentFromEvent(ev);
+      placeCursor(x, y);
+    });
+
+    // SHIFT+Click captura coordenadas
+    floorMap.addEventListener("click", (ev) => {
+      if (!editMode) return;
+      if (!ev.shiftKey) return;
+
+      const { x, y } = getPercentFromEvent(ev);
+      placeCursor(x, y);
+      openMiniPrompt(x, y);
+    });
+  }
+
+  // Copiar todo en el formato que querés
+  if (btnCopyPoints) {
+    btnCopyPoints.addEventListener("click", async () => {
+      const out = captured
+        .map((p) => `{ id: "${p.id}", x: ${p.x}, y: ${p.y} }`)
+        .join("\n");
+
+      try {
+        await navigator.clipboard.writeText(out);
+        setMsg(`📋 Copiado (${captured.length} puntos)`);
+      } catch {
+        // fallback
+        console.log(out);
+        setMsg("No pude copiar automático: te lo dejé en consola.");
+      }
+    });
+  }
+
+  // Botón del UI para entrar/salir edición
+  if (editBtn) {
+    editBtn.addEventListener("click", () => {
+      editMode = !editMode;
+      pendingSeatEl = null;
+      setMsg(editMode ? "🛠️ Modo edición ON (SHIFT+Click para capturar)" : "");
+      updateEditUI();
+    });
+  }
 
   // Init
   setDefaultDate();
   renderSeats();
+  updateSeatClasses();
+  datePick.addEventListener("change", loadBusySeats);
+  loadBusySeats();
+  updateEditUI();
 })();
