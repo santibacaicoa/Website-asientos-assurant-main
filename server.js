@@ -11,12 +11,12 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname)));
 
 const pool = new Pool({
-  host: "localhost",
-  port: 5432,
-  database: "reservas_oficina",
-  user: "postgres",
-  password: "TuNuevaPasswordSegura",
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_SSL === "true"
+    ? { rejectUnauthorized: false }
+    : false,
 });
+
 
 // --------------------
 // HEALTH
