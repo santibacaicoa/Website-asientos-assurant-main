@@ -32,14 +32,6 @@ app.get("/healthz", async (req, res) => {
 
 // --------------------
 // SETUP (DEV) + reset opcional
-//
-// Normal:
-//   http://localhost:3000/api/setup-local
-//
-// Reset DEV (borra y recrea todo):
-//   http://localhost:3000/api/setup-local?reset=1
-//
-// En producción se bloquea salvo key.
 // --------------------
 app.get("/api/setup-local", async (req, res) => {
   const isProd = process.env.NODE_ENV === "production";
@@ -159,7 +151,8 @@ app.post("/api/auth/register-user", async (req, res) => {
     );
     res.json({ ok: true, user: q.rows[0] });
   } catch (e) {
-    if (e.code === "23505") return res.status(409).json({ ok: false, error: "Username ya existe" });
+    if (e.code === "23505")
+      return res.status(409).json({ ok: false, error: "Username ya existe" });
     console.error(e);
     res.status(500).json({ ok: false, error: "Error registrando usuario" });
   }
@@ -167,7 +160,8 @@ app.post("/api/auth/register-user", async (req, res) => {
 
 app.post("/api/auth/login-user", async (req, res) => {
   const { username } = req.body || {};
-  if (!username) return res.status(400).json({ ok: false, error: "Falta username" });
+  if (!username)
+    return res.status(400).json({ ok: false, error: "Falta username" });
 
   try {
     const q = await pool.query(
@@ -176,7 +170,8 @@ app.post("/api/auth/login-user", async (req, res) => {
        WHERE username=$1 AND rol='user'`,
       [username.trim()]
     );
-    if (!q.rowCount) return res.status(404).json({ ok: false, error: "Usuario no encontrado" });
+    if (!q.rowCount)
+      return res.status(404).json({ ok: false, error: "Usuario no encontrado" });
     res.json({ ok: true, user: q.rows[0] });
   } catch (e) {
     console.error(e);
@@ -186,7 +181,8 @@ app.post("/api/auth/login-user", async (req, res) => {
 
 app.post("/api/auth/find-users", async (req, res) => {
   const { nombre, apellido } = req.body || {};
-  if (!nombre || !apellido) return res.status(400).json({ ok: false, error: "Faltan datos" });
+  if (!nombre || !apellido)
+    return res.status(400).json({ ok: false, error: "Faltan datos" });
 
   try {
     const q = await pool.query(
@@ -219,7 +215,8 @@ app.post("/api/auth/register-admin", async (req, res) => {
     );
     res.json({ ok: true, user: q.rows[0] });
   } catch (e) {
-    if (e.code === "23505") return res.status(409).json({ ok: false, error: "Username ya existe" });
+    if (e.code === "23505")
+      return res.status(409).json({ ok: false, error: "Username ya existe" });
     console.error(e);
     res.status(500).json({ ok: false, error: "Error registrando admin" });
   }
@@ -227,7 +224,8 @@ app.post("/api/auth/register-admin", async (req, res) => {
 
 app.post("/api/auth/login-admin", async (req, res) => {
   const { username, password } = req.body || {};
-  if (!username || !password) return res.status(400).json({ ok: false, error: "Faltan datos" });
+  if (!username || !password)
+    return res.status(400).json({ ok: false, error: "Faltan datos" });
 
   try {
     const q = await pool.query(
@@ -235,11 +233,13 @@ app.post("/api/auth/login-admin", async (req, res) => {
        FROM usuarios WHERE username=$1 AND rol='admin'`,
       [username.trim()]
     );
-    if (!q.rowCount) return res.status(404).json({ ok: false, error: "Admin no encontrado" });
+    if (!q.rowCount)
+      return res.status(404).json({ ok: false, error: "Admin no encontrado" });
 
     const admin = q.rows[0];
     const ok = await bcrypt.compare(password, admin.password_hash || "");
-    if (!ok) return res.status(401).json({ ok: false, error: "Password incorrecta" });
+    if (!ok)
+      return res.status(401).json({ ok: false, error: "Password incorrecta" });
 
     delete admin.password_hash;
     res.json({ ok: true, user: admin });
@@ -254,13 +254,20 @@ app.post("/api/auth/login-admin", async (req, res) => {
 // --------------------
 app.post("/api/pre-reservas", async (req, res) => {
   const { usuario_id, tipo, cantidad_asientos } = req.body || {};
-  if (!usuario_id || !tipo) return res.status(400).json({ ok: false, error: "Faltan datos" });
+  if (!usuario_id || !tipo)
+    return res.status(400).json({ ok: false, error: "Faltan datos" });
 
-  const cant = Number.isFinite(Number(cantidad_asientos)) ? Math.max(1, Number(cantidad_asientos)) : 1;
+  const cant = Number.isFinite(Number(cantidad_asientos))
+    ? Math.max(1, Number(cantidad_asientos))
+    : 1;
 
   try {
-    const u = await pool.query(`SELECT id, nombre, apellido FROM usuarios WHERE id = $1`, [Number(usuario_id)]);
-    if (!u.rowCount) return res.status(404).json({ ok: false, error: "Usuario no existe" });
+    const u = await pool.query(
+      `SELECT id, nombre, apellido FROM usuarios WHERE id = $1`,
+      [Number(usuario_id)]
+    );
+    if (!u.rowCount)
+      return res.status(404).json({ ok: false, error: "Usuario no existe" });
 
     const fullName = `${u.rows[0].nombre} ${u.rows[0].apellido}`.trim();
 
@@ -282,14 +289,20 @@ app.patch("/api/reservas/:id/piso", async (req, res) => {
   const reservaId = Number(req.params.id);
   const pisoNum = Number(req.body?.piso);
 
-  if (!reservaId || !pisoNum) return res.status(400).json({ ok: false, error: "Faltan datos" });
+  if (!reservaId || !pisoNum)
+    return res.status(400).json({ ok: false, error: "Faltan datos" });
 
   try {
     const pisoId = await getPisoId(pisoNum);
-    if (!pisoId) return res.status(404).json({ ok: false, error: "Piso no existe" });
+    if (!pisoId)
+      return res.status(404).json({ ok: false, error: "Piso no existe" });
 
-    const q = await pool.query(`UPDATE reservas SET piso_id=$1 WHERE id=$2 RETURNING *`, [pisoId, reservaId]);
-    if (!q.rowCount) return res.status(404).json({ ok: false, error: "Reserva no encontrada" });
+    const q = await pool.query(
+      `UPDATE reservas SET piso_id=$1 WHERE id=$2 RETURNING *`,
+      [pisoId, reservaId]
+    );
+    if (!q.rowCount)
+      return res.status(404).json({ ok: false, error: "Reserva no encontrada" });
 
     res.json({ ok: true, reserva: q.rows[0] });
   } catch (e) {
@@ -304,11 +317,13 @@ app.patch("/api/reservas/:id/piso", async (req, res) => {
 app.get("/api/asientos/ocupados", async (req, res) => {
   const pisoNum = Number(req.query.piso);
   const fecha = String(req.query.fecha || "").trim();
-  if (!pisoNum || !fecha) return res.status(400).json({ ok: false, error: "Faltan piso/fecha" });
+  if (!pisoNum || !fecha)
+    return res.status(400).json({ ok: false, error: "Faltan piso/fecha" });
 
   try {
     const pisoId = await getPisoId(pisoNum);
-    if (!pisoId) return res.status(404).json({ ok: false, error: "Piso no existe" });
+    if (!pisoId)
+      return res.status(404).json({ ok: false, error: "Piso no existe" });
 
     const q = await pool.query(
       `SELECT asiento_id FROM reservas_asientos
@@ -324,18 +339,24 @@ app.get("/api/asientos/ocupados", async (req, res) => {
   }
 });
 
-// ✅ NUEVO: ocupados + nombre (para tooltip)
+// ✅ ocupados + nombre + usuario_id + reserva_id (tooltip + permisos)
 app.get("/api/asientos/ocupados-info", async (req, res) => {
   const pisoNum = Number(req.query.piso);
   const fecha = String(req.query.fecha || "").trim();
-  if (!pisoNum || !fecha) return res.status(400).json({ ok: false, error: "Faltan piso/fecha" });
+  if (!pisoNum || !fecha)
+    return res.status(400).json({ ok: false, error: "Faltan piso/fecha" });
 
   try {
     const pisoId = await getPisoId(pisoNum);
-    if (!pisoId) return res.status(404).json({ ok: false, error: "Piso no existe" });
+    if (!pisoId)
+      return res.status(404).json({ ok: false, error: "Piso no existe" });
 
     const q = await pool.query(
-      `SELECT ra.asiento_id, r.nombre
+      `SELECT 
+         ra.asiento_id,
+         ra.reserva_id,
+         r.usuario_id,
+         r.nombre
        FROM reservas_asientos ra
        JOIN reservas r ON r.id = ra.reserva_id
        WHERE ra.piso_id=$1 AND ra.fecha=$2
@@ -351,9 +372,9 @@ app.get("/api/asientos/ocupados-info", async (req, res) => {
 });
 
 // --------------------
-// Confirmar asientos seleccionados (modo cine)
+// Confirmar asientos seleccionados
 // POST /api/asientos/confirmar
-// body: { reserva_id, piso, fecha, asientos: ["11-01","11-02"] }
+// body: { reserva_id, piso, fecha, asientos: [...] }
 // --------------------
 app.post("/api/asientos/confirmar", async (req, res) => {
   const reservaId = Number(req.body?.reserva_id);
@@ -362,21 +383,27 @@ app.post("/api/asientos/confirmar", async (req, res) => {
   const asientos = Array.isArray(req.body?.asientos) ? req.body.asientos : [];
 
   if (!reservaId || !pisoNum || !fecha || asientos.length === 0) {
-    return res.status(400).json({ ok: false, error: "Faltan datos (reserva_id, piso, fecha, asientos[])" });
+    return res
+      .status(400)
+      .json({ ok: false, error: "Faltan datos (reserva_id, piso, fecha, asientos[])" });
   }
 
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
 
-    const rsv = await client.query(`SELECT id, tipo FROM reservas WHERE id=$1`, [reservaId]);
+    const rsv = await client.query(`SELECT id, tipo FROM reservas WHERE id=$1`, [
+      reservaId,
+    ]);
     if (!rsv.rowCount) {
       await client.query("ROLLBACK");
       return res.status(404).json({ ok: false, error: "Reserva no encontrada" });
     }
 
     const pisoId = await (async () => {
-      const p = await client.query(`SELECT id FROM pisos WHERE numero=$1`, [pisoNum]);
+      const p = await client.query(`SELECT id FROM pisos WHERE numero=$1`, [
+        pisoNum,
+      ]);
       return p.rows[0]?.id || null;
     })();
 
@@ -413,7 +440,10 @@ app.post("/api/asientos/confirmar", async (req, res) => {
     await client.query("ROLLBACK");
 
     if (e.code === "23505") {
-      return res.status(409).json({ ok: false, error: "Uno de los asientos ya está ocupado. Actualizá la vista." });
+      return res.status(409).json({
+        ok: false,
+        error: "Uno de los asientos ya está ocupado. Actualizá la vista.",
+      });
     }
 
     console.error(e);
@@ -424,7 +454,128 @@ app.post("/api/asientos/confirmar", async (req, res) => {
 });
 
 // --------------------
+// CANCELAR ASIENTOS
+// POST /api/asientos/cancelar
+// body: { piso, fecha, asientos: [...], usuario_id }
+// Reglas:
+// - user: solo puede cancelar asientos donde r.usuario_id = usuario_id
+// - admin: puede cancelar cualquiera
+// --------------------
+app.post("/api/asientos/cancelar", async (req, res) => {
+  const pisoNum = Number(req.body?.piso);
+  const fecha = String(req.body?.fecha || "").trim();
+  const asientos = Array.isArray(req.body?.asientos) ? req.body.asientos : [];
+  const usuarioId = Number(req.body?.usuario_id);
+
+  if (!pisoNum || !fecha || asientos.length === 0 || !usuarioId) {
+    return res.status(400).json({
+      ok: false,
+      error: "Faltan datos (piso, fecha, asientos[], usuario_id)",
+    });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const u = await client.query(`SELECT id, rol FROM usuarios WHERE id=$1`, [
+      usuarioId,
+    ]);
+    if (!u.rowCount) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ ok: false, error: "Usuario no existe" });
+    }
+    const isAdmin = u.rows[0].rol === "admin";
+
+    const pisoId = await (async () => {
+      const p = await client.query(`SELECT id FROM pisos WHERE numero=$1`, [
+        pisoNum,
+      ]);
+      return p.rows[0]?.id || null;
+    })();
+
+    if (!pisoId) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ ok: false, error: "Piso no existe" });
+    }
+
+    const seats = asientos.map((s) => String(s).trim()).filter(Boolean);
+
+    const info = await client.query(
+      `SELECT ra.asiento_id, ra.reserva_id, r.usuario_id
+       FROM reservas_asientos ra
+       JOIN reservas r ON r.id = ra.reserva_id
+       WHERE ra.piso_id=$1 AND ra.fecha=$2 AND ra.asiento_id = ANY($3::text[])`,
+      [pisoId, fecha, seats]
+    );
+
+    const rows = info.rows || [];
+    const allowed = [];
+    const denied = [];
+
+    for (const row of rows) {
+      if (isAdmin || Number(row.usuario_id) === usuarioId) allowed.push(row.asiento_id);
+      else denied.push(row.asiento_id);
+    }
+
+    const foundSet = new Set(rows.map((r) => r.asiento_id));
+    for (const s of seats) {
+      if (!foundSet.has(s)) denied.push(s);
+    }
+
+    if (allowed.length === 0) {
+      await client.query("ROLLBACK");
+      return res.json({
+        ok: true,
+        deleted: [],
+        denied,
+        message: "No había asientos cancelables para tu usuario.",
+      });
+    }
+
+    const del = await client.query(
+      `DELETE FROM reservas_asientos ra
+       USING reservas r
+       WHERE ra.reserva_id = r.id
+         AND ra.piso_id=$1
+         AND ra.fecha=$2
+         AND ra.asiento_id = ANY($3::text[])
+         AND (${isAdmin ? "TRUE" : "r.usuario_id = $4"})
+       RETURNING ra.asiento_id, ra.reserva_id`,
+      isAdmin ? [pisoId, fecha, allowed] : [pisoId, fecha, allowed, usuarioId]
+    );
+
+    const deleted = del.rows.map((r) => r.asiento_id);
+    const affectedReservaIds = Array.from(new Set(del.rows.map((r) => r.reserva_id)));
+
+    for (const rid of affectedReservaIds) {
+      const c = await client.query(
+        `SELECT COUNT(*)::int AS n FROM reservas_asientos WHERE reserva_id=$1`,
+        [rid]
+      );
+      if ((c.rows[0]?.n || 0) === 0) {
+        await client.query(
+          `UPDATE reservas SET estado='borrador' WHERE id=$1`,
+          [rid]
+        );
+      }
+    }
+
+    await client.query("COMMIT");
+    res.json({ ok: true, deleted, denied });
+  } catch (e) {
+    await client.query("ROLLBACK");
+    console.error(e);
+    res.status(500).json({ ok: false, error: "Error cancelando asientos" });
+  } finally {
+    client.release();
+  }
+});
+
+// --------------------
 // START
 // --------------------
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Servidor activo en http://localhost:${PORT}`));
+app.listen(PORT, () =>
+  console.log(`Servidor activo en http://localhost:${PORT}`)
+);

@@ -1,4 +1,4 @@
-// floor11.js (cine-style reservar y confirmar)
+// floor11.js (cine-style reservar y confirmar + modo cancelar)
 (() => {
   const seatsLayer = document.getElementById("seatsLayer");
   const floorMap = document.getElementById("floorMap");
@@ -10,6 +10,10 @@
   const btnClearSel = document.getElementById("btnClearSel");
   const selCount = document.getElementById("selCount");
 
+  const btnToggleCancel = document.getElementById("btnToggleCancel");
+  const btnConfirmCancel = document.getElementById("btnConfirmCancel");
+  const btnClearCancel = document.getElementById("btnClearCancel");
+
   const editHint = document.getElementById("editHint");
   const editCursor = document.getElementById("editCursor");
 
@@ -19,104 +23,100 @@
   }
 
   // ==========================
-  // 1) Tus asientos
+  // Asientos Piso 11 (82)
   // ==========================
   const SEATS_11 = [
-{ id: "11-01", x: 1.8, y: 25.3 },
-{ id: "11-02", x: 5.6, y: 25.3 },
-{ id: "11-03", x: 10.2, y: 25.2 },
-{ id: "11-04", x: 14.9, y: 25.2 },
-{ id: "11-05", x: 19.0, y: 25.2 },
-{ id: "11-06", x: 1.7, y: 30.3 },
-{ id: "11-07", x: 5.6, y: 30.5 },
-{ id: "11-08", x: 10.2, y: 30.5 },
-{ id: "11-09", x: 14.9, y: 30.5 },
-{ id: "11-10", x: 19.1, y: 30.5 },
-{ id: "11-11", x: 1.6, y: 42.4 },
-{ id: "11-12", x: 5.6, y: 42.4 },
-{ id: "11-13", x: 10.3, y: 42.1 },
-{ id: "11-14", x: 14.8, y: 42.0 },
-{ id: "11-15", x: 19.1, y: 42.4 },
-{ id: "11-16", x: 1.7, y: 47.8 },
-{ id: "11-17", x: 5.6, y: 47.8 },
-{ id: "11-18", x: 10.3, y: 47.6 },
-{ id: "11-19", x: 14.8, y: 47.4 },
-{ id: "11-20", x: 19.0, y: 47.4 },
-{ id: "11-21", x: 26.9, y: 64.2 },
-{ id: "11-22", x: 31.1, y: 64.0 },
-{ id: "11-23", x: 35.6, y: 64.2 },
-{ id: "11-24", x: 40.3, y: 64.4 },
-{ id: "11-25", x: 44.5, y: 64.0 },
-{ id: "11-26", x: 27.0, y: 69.0 },
-{ id: "11-27", x: 31.0, y: 69.3 },
-{ id: "11-28", x: 35.4, y: 69.3 },
-{ id: "11-29", x: 40.4, y: 69.4 },
-{ id: "11-30", x: 44.5, y: 69.4 },
-{ id: "11-31", x: 26.7, y: 81.1 },
-{ id: "11-32", x: 31.0, y: 80.9 },
-{ id: "11-33", x: 35.6, y: 81.1 },
-{ id: "11-34", x: 40.2, y: 81.1 },
-{ id: "11-35", x: 44.6, y: 80.9 },
-{ id: "11-36", x: 27.0, y: 86.4 },
-{ id: "11-37", x: 31.1, y: 86.4 },
-{ id: "11-38", x: 35.6, y: 86.5 },
-{ id: "11-39", x: 40.3, y: 86.4 },
-{ id: "11-40", x: 44.6, y: 86.4 },
-{ id: "11-41", x: 55.0, y: 64.5 },
-{ id: "11-42", x: 59.6, y: 64.4 },
-{ id: "11-43", x: 64.5, y: 64.2 },
-{ id: "11-44", x: 68.8, y: 64.2 },
-{ id: "11-45", x: 73.0, y: 64.4 },
-{ id: "11-46", x: 55.0, y: 69.4 },
-{ id: "11-47", x: 59.4, y: 69.7 },
-{ id: "11-48", x: 64.3, y: 69.7 },
-{ id: "11-49", x: 68.9, y: 69.3 },
-{ id: "11-50", x: 72.9, y: 69.4 },
-{ id: "11-51", x: 55.2, y: 80.9 },
-{ id: "11-52", x: 59.6, y: 80.8 },
-{ id: "11-53", x: 64.5, y: 80.7 },
-{ id: "11-54", x: 68.9, y: 80.8 },
-{ id: "11-55", x: 72.9, y: 80.9 },
-{ id: "11-56", x: 55.0, y: 86.2 },
-{ id: "11-57", x: 59.6, y: 86.0 },
-{ id: "11-58", x: 64.6, y: 86.0 },
-{ id: "11-59", x: 68.9, y: 86.2 },
-{ id: "11-60", x: 72.8, y: 86.0 },
-{ id: "11-61", x: 80.0, y: 47.8 },
-{ id: "11-62", x: 84.5, y: 47.8 },
-{ id: "11-63", x: 89.2, y: 47.8 },
-{ id: "11-64", x: 93.8, y: 47.3 },
-{ id: "11-65", x: 80, y: 52.5 },
-{ id: "11-66", x: 84.5, y: 52.6 },
-{ id: "11-67", x: 89.4, y: 52.3 },
-{ id: "11-68", x: 93.7, y: 52.3 },
-{ id: "11-69", x: 79.7, y: 30.5 },
-{ id: "11-70", x: 84.4, y: 30.6 },
-{ id: "11-71", x: 89.0, y: 30.7 },
-{ id: "11-72", x: 93.7, y: 30.7 },
-{ id: "11-73", x: 79.5, y: 35.8 },
-{ id: "11-74", x: 84.8, y: 35.8 },
-{ id: "11-75", x: 89.3, y: 36.0 },
-{ id: "11-76", x: 93.7, y: 35.5 },
-{ id: "11-77", x: 86, y: 8.6 },
-{ id: "11-78", x: 89.2, y: 8.6 },
-{ id: "11-79", x: 86.0, y: 14.3 },
-{ id: "11-80", x: 89.4, y: 14.3 },
-{ id: "11-81", x: 86.0, y: 19 },
-{ id: "11-82", x: 89.4, y: 19 }
+    { id: "11-01", x: 1.8, y: 25.3 },
+    { id: "11-02", x: 5.6, y: 25.3 },
+    { id: "11-03", x: 10.2, y: 25.2 },
+    { id: "11-04", x: 14.9, y: 25.2 },
+    { id: "11-05", x: 19.0, y: 25.2 },
+    { id: "11-06", x: 1.7, y: 30.3 },
+    { id: "11-07", x: 5.6, y: 30.5 },
+    { id: "11-08", x: 10.2, y: 30.5 },
+    { id: "11-09", x: 14.9, y: 30.5 },
+    { id: "11-10", x: 19.1, y: 30.5 },
+    { id: "11-11", x: 1.6, y: 42.4 },
+    { id: "11-12", x: 5.6, y: 42.4 },
+    { id: "11-13", x: 10.3, y: 42.1 },
+    { id: "11-14", x: 14.8, y: 42.0 },
+    { id: "11-15", x: 19.1, y: 42.4 },
+    { id: "11-16", x: 1.7, y: 47.8 },
+    { id: "11-17", x: 5.6, y: 47.8 },
+    { id: "11-18", x: 10.3, y: 47.6 },
+    { id: "11-19", x: 14.8, y: 47.4 },
+    { id: "11-20", x: 19.0, y: 47.4 },
+    { id: "11-21", x: 26.9, y: 64.2 },
+    { id: "11-22", x: 31.1, y: 64.0 },
+    { id: "11-23", x: 35.6, y: 64.2 },
+    { id: "11-24", x: 40.3, y: 64.4 },
+    { id: "11-25", x: 44.5, y: 64.0 },
+    { id: "11-26", x: 27.0, y: 69.0 },
+    { id: "11-27", x: 31.0, y: 69.3 },
+    { id: "11-28", x: 35.4, y: 69.3 },
+    { id: "11-29", x: 40.4, y: 69.4 },
+    { id: "11-30", x: 44.5, y: 69.4 },
+    { id: "11-31", x: 26.7, y: 81.1 },
+    { id: "11-32", x: 31.0, y: 80.9 },
+    { id: "11-33", x: 35.6, y: 81.1 },
+    { id: "11-34", x: 40.2, y: 81.1 },
+    { id: "11-35", x: 44.6, y: 80.9 },
+    { id: "11-36", x: 27.0, y: 86.4 },
+    { id: "11-37", x: 31.1, y: 86.4 },
+    { id: "11-38", x: 35.6, y: 86.5 },
+    { id: "11-39", x: 40.3, y: 86.4 },
+    { id: "11-40", x: 44.6, y: 86.4 },
+    { id: "11-41", x: 55.0, y: 64.5 },
+    { id: "11-42", x: 59.6, y: 64.4 },
+    { id: "11-43", x: 64.5, y: 64.2 },
+    { id: "11-44", x: 68.8, y: 64.2 },
+    { id: "11-45", x: 73.0, y: 64.4 },
+    { id: "11-46", x: 55.0, y: 69.4 },
+    { id: "11-47", x: 59.4, y: 69.7 },
+    { id: "11-48", x: 64.3, y: 69.7 },
+    { id: "11-49", x: 68.9, y: 69.3 },
+    { id: "11-50", x: 72.9, y: 69.4 },
+    { id: "11-51", x: 55.2, y: 80.9 },
+    { id: "11-52", x: 59.6, y: 80.8 },
+    { id: "11-53", x: 64.5, y: 80.7 },
+    { id: "11-54", x: 68.9, y: 80.8 },
+    { id: "11-55", x: 72.9, y: 80.9 },
+    { id: "11-56", x: 55.0, y: 86.2 },
+    { id: "11-57", x: 59.6, y: 86.0 },
+    { id: "11-58", x: 64.6, y: 86.0 },
+    { id: "11-59", x: 68.9, y: 86.2 },
+    { id: "11-60", x: 72.8, y: 86.0 },
+    { id: "11-61", x: 80.0, y: 47.8 },
+    { id: "11-62", x: 84.5, y: 47.8 },
+    { id: "11-63", x: 89.2, y: 47.8 },
+    { id: "11-64", x: 93.8, y: 47.3 },
+    { id: "11-65", x: 80.0, y: 52.5 },
+    { id: "11-66", x: 84.5, y: 52.6 },
+    { id: "11-67", x: 89.4, y: 52.3 },
+    { id: "11-68", x: 93.7, y: 52.3 },
+    { id: "11-69", x: 79.7, y: 30.5 },
+    { id: "11-70", x: 84.4, y: 30.6 },
+    { id: "11-71", x: 89.0, y: 30.7 },
+    { id: "11-72", x: 93.7, y: 30.7 },
+    { id: "11-73", x: 79.5, y: 35.8 },
+    { id: "11-74", x: 84.8, y: 35.8 },
+    { id: "11-75", x: 89.3, y: 36.0 },
+    { id: "11-76", x: 93.7, y: 35.5 },
+    { id: "11-77", x: 86.0, y: 8.6 },
+    { id: "11-78", x: 89.2, y: 8.6 },
+    { id: "11-79", x: 86.0, y: 14.3 },
+    { id: "11-80", x: 89.4, y: 14.3 },
+    { id: "11-81", x: 86.0, y: 19.0 },
+    { id: "11-82", x: 89.4, y: 19.0 },
   ];
 
-  // ==========================
   // Helpers UI
-  // ==========================
   const setMsg = (t) => (sideMsg.textContent = t || "");
   const todayISO = () => new Date().toISOString().slice(0, 10);
 
-  // ✅ Lee reserva.tipo sea JSON o texto plano
   function getReservaTipo() {
     const raw = localStorage.getItem("reserva.tipo");
     if (!raw) return null;
-
     try {
       const parsed = JSON.parse(raw);
       return typeof parsed === "string" ? parsed : null;
@@ -125,14 +125,30 @@
     }
   }
 
-  // ==========================
-  // Estado
-  // ==========================
-  const seatEls = new Map(); // id -> button
-  let occupied = new Set(); // ocupados definitivos de DB
-  let selected = new Set(); // selección temporal (cine)
+  function getSessionUser() {
+    try {
+      return JSON.parse(localStorage.getItem("session.user") || "null");
+    } catch {
+      return null;
+    }
+  }
 
-  // Modo edición
+  function isCancelMode() {
+    const v1 = localStorage.getItem("modo.quitar");
+    const v2 = localStorage.getItem("admin.modo");
+    const v3 = localStorage.getItem("asientos.modo");
+    return v1 === "1" || v1 === "true" || v2 === "quitar" || v3 === "cancelar";
+  }
+
+  function setCancelMode(on) {
+    if (on) localStorage.setItem("modo.quitar", "1");
+    else localStorage.removeItem("modo.quitar");
+  }
+
+  // Estado
+  const seatEls = new Map();
+  let occupied = new Set();
+  let selected = new Set();
   let editMode = false;
 
   function updateSelectionUI() {
@@ -140,12 +156,22 @@
     const has = selected.size > 0;
     btnConfirm.disabled = !has;
     btnClearSel.disabled = !has;
+
+    if (isCancelMode()) {
+      btnConfirm.textContent = "Confirmar cancelación";
+      btnConfirm.classList.add("is-danger");
+      btnConfirm.classList.remove("side-btn-primary");
+      btnConfirm.classList.add("side-btn-danger");
+    } else {
+      btnConfirm.textContent = "Confirmar reserva";
+      btnConfirm.classList.remove("is-danger");
+      btnConfirm.classList.remove("side-btn-danger");
+      btnConfirm.classList.add("side-btn-primary");
+    }
   }
 
-  // ==========================
-  // Tooltip (mostrar quién reservó)
-  // ==========================
-  const occupiedByName = new Map(); // asiento_id -> "Nombre Apellido"
+  // Tooltip
+  const occupiedByName = new Map();
   let tooltipEl = null;
 
   function ensureTooltip() {
@@ -154,27 +180,26 @@
     tooltipEl.className = "seat-tooltip is-hidden";
     document.body.appendChild(tooltipEl);
   }
-
   function showTooltip(text, ev) {
     ensureTooltip();
     tooltipEl.textContent = text;
     tooltipEl.classList.remove("is-hidden");
     moveTooltip(ev);
   }
-
   function moveTooltip(ev) {
     if (!tooltipEl || tooltipEl.classList.contains("is-hidden")) return;
     const pad = 14;
     tooltipEl.style.left = `${ev.clientX + pad}px`;
     tooltipEl.style.top = `${ev.clientY + pad}px`;
   }
-
   function hideTooltip() {
     if (!tooltipEl) return;
     tooltipEl.classList.add("is-hidden");
   }
 
   function applySeatClasses() {
+    const cancelMode = isCancelMode();
+
     seatEls.forEach((btn, id) => {
       const isOcc = occupied.has(id);
       const isSel = selected.has(id);
@@ -182,10 +207,10 @@
       btn.classList.toggle("is-busy", isOcc);
       btn.classList.toggle("is-free", !isOcc);
 
-      // selección temporal (cine)
-      btn.classList.toggle("is-selected", isSel);
+      // ✅ selección distinta según modo
+      btn.classList.toggle("is-selected", !cancelMode && isSel);
+      btn.classList.toggle("is-cancel-selected", cancelMode && isSel);
 
-      // title fallback
       if (isOcc) {
         const who = occupiedByName.get(id);
         btn.title = who ? `${id} • ${who}` : id;
@@ -193,14 +218,12 @@
         btn.title = id;
       }
 
-      // ocupado => disable total
-      btn.disabled = isOcc;
+      // ✅ CLAVE:
+      btn.disabled = cancelMode ? !isOcc : isOcc;
+      btn.classList.toggle("is-disabled", btn.disabled);
     });
   }
 
-  // ==========================
-  // Render
-  // ==========================
   function renderSeats() {
     seatsLayer.innerHTML = "";
     seatEls.clear();
@@ -217,20 +240,30 @@
       b.addEventListener("click", (ev) => {
         ev.stopPropagation();
         if (editMode) return;
-        if (occupied.has(s.id)) return;
 
-        const tipo = getReservaTipo(); // "individual" | "grupal" | null
+        const cancelMode = isCancelMode();
+        const isOcc = occupied.has(s.id);
 
-        // ✅ Reserva individual: solo 1 asiento
+        if (cancelMode) {
+          if (!isOcc) return;
+          if (selected.has(s.id)) selected.delete(s.id);
+          else selected.add(s.id);
+
+          updateSelectionUI();
+          applySeatClasses();
+          return;
+        }
+
+        if (isOcc) return;
+
+        const tipo = getReservaTipo();
         if (tipo === "individual") {
-          if (selected.has(s.id)) {
-            selected.clear();
-          } else {
+          if (selected.has(s.id)) selected.clear();
+          else {
             selected.clear();
             selected.add(s.id);
           }
         } else {
-          // ✅ Reserva grupal: toggle normal
           if (selected.has(s.id)) selected.delete(s.id);
           else selected.add(s.id);
         }
@@ -239,7 +272,6 @@
         applySeatClasses();
       });
 
-      // Hover: si está ocupado, mostramos quién lo reservó
       b.addEventListener("mouseenter", (ev) => {
         if (editMode) return;
         if (!occupied.has(s.id)) return;
@@ -247,15 +279,11 @@
         if (!who) return;
         showTooltip(who, ev);
       });
-
       b.addEventListener("mousemove", (ev) => {
         if (editMode) return;
         moveTooltip(ev);
       });
-
-      b.addEventListener("mouseleave", () => {
-        hideTooltip();
-      });
+      b.addEventListener("mouseleave", () => hideTooltip());
 
       seatEls.set(s.id, b);
       seatsLayer.appendChild(b);
@@ -264,9 +292,6 @@
     applySeatClasses();
   }
 
-  // ==========================
-  // Backend: cargar ocupados + nombre
-  // ==========================
   async function loadOccupied() {
     const fecha = datePick.value;
     if (!fecha) return;
@@ -281,7 +306,6 @@
         return;
       }
 
-      // j.ocupados viene como [{ asiento_id, nombre }]
       occupiedByName.clear();
       const rows = Array.isArray(j.ocupados) ? j.ocupados : [];
       occupied = new Set(rows.map((row) => row.asiento_id));
@@ -290,9 +314,13 @@
         if (row?.asiento_id) occupiedByName.set(row.asiento_id, row?.nombre || "");
       }
 
-      // si lo seleccionado quedó ocupado, lo sacamos
+      const cancelMode = isCancelMode();
       selected.forEach((id) => {
-        if (occupied.has(id)) selected.delete(id);
+        if (cancelMode) {
+          if (!occupied.has(id)) selected.delete(id);
+        } else {
+          if (occupied.has(id)) selected.delete(id);
+        }
       });
 
       updateSelectionUI();
@@ -304,26 +332,56 @@
     }
   }
 
-  // ==========================
-  // Backend: confirmar selección
-  // ==========================
-  async function confirmReservation() {
-    const reservaId = JSON.parse(localStorage.getItem("reserva.id") || "null");
-    if (!reservaId) {
-      setMsg("No encontré reserva.id (volvé al inicio y hacé el flujo completo).");
-      return;
-    }
-
+  async function confirmAction() {
     const fecha = datePick.value;
-    if (!fecha) {
-      setMsg("Elegí una fecha.");
+    if (!fecha) return setMsg("Elegí una fecha.");
+    if (selected.size === 0) return setMsg("Seleccioná al menos 1 asiento.");
+
+    const cancelMode = isCancelMode();
+
+    if (cancelMode) {
+      const session = getSessionUser();
+      if (!session?.id) return setMsg("No hay usuario en sesión (volvé al home y logueate).");
+
+      try {
+        btnConfirm.disabled = true;
+        setMsg("Cancelando…");
+
+        const asientos = Array.from(selected);
+        const r = await fetch("/api/asientos/cancelar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ piso: 11, fecha, asientos, usuario_id: session.id }),
+        });
+
+        const j = await r.json().catch(() => null);
+        if (!r.ok || !j?.ok) {
+          setMsg(j?.error || "No se pudo cancelar");
+          await loadOccupied();
+          updateSelectionUI();
+          return;
+        }
+
+        selected.clear();
+        updateSelectionUI();
+        await loadOccupied();
+
+        if (j?.denied?.length) {
+          setMsg(`✅ Canceladas: ${j.deleted?.length || 0}. Sin permiso: ${j.denied.join(", ")}`);
+        } else {
+          setMsg("✅ Reservas canceladas");
+        }
+      } catch (e) {
+        console.error(e);
+        setMsg("Error cancelando");
+      } finally {
+        btnConfirm.disabled = selected.size === 0;
+      }
       return;
     }
 
-    if (selected.size === 0) {
-      setMsg("Seleccioná al menos 1 asiento.");
-      return;
-    }
+    const reservaId = JSON.parse(localStorage.getItem("reserva.id") || "null");
+    if (!reservaId) return setMsg("No encontré reserva.id (volvé al inicio y hacé el flujo completo).");
 
     const tipo = getReservaTipo();
     if (tipo === "individual" && selected.size > 1) {
@@ -356,11 +414,9 @@
         return;
       }
 
-      // éxito: limpiamos selección y recargamos ocupados (trae también los nombres)
       selected.clear();
       updateSelectionUI();
       await loadOccupied();
-
       setMsg("✅ Reserva confirmada");
     } catch (e) {
       console.error(e);
@@ -370,10 +426,7 @@
     }
   }
 
-  // ==========================
-  // Acciones UI
-  // ==========================
-  btnConfirm.addEventListener("click", confirmReservation);
+  btnConfirm.addEventListener("click", confirmAction);
 
   btnClearSel.addEventListener("click", () => {
     selected.clear();
@@ -392,12 +445,32 @@
     await loadOccupied();
   });
 
-  // ==========================
-  // MODO EDICIÓN (E)
-  // ==========================
-  function fmt(n) {
-    return Math.round(n * 10) / 10;
+  // ✅ Botón "Quitar reservas" (ACTIVA/DESACTIVA modo)
+  if (btnConfirmCancel) btnConfirmCancel.classList.add("is-hidden");
+  if (btnClearCancel) btnClearCancel.classList.add("is-hidden");
+
+  if (btnToggleCancel) {
+    btnToggleCancel.textContent = isCancelMode()
+      ? "Salir de quitar reservas"
+      : "Quitar reservas";
+
+    btnToggleCancel.addEventListener("click", async () => {
+      const nowOn = !isCancelMode();
+      setCancelMode(nowOn);
+
+      selected.clear();
+      updateSelectionUI();
+
+      await loadOccupied();
+      applySeatClasses();
+
+      setMsg(nowOn ? "🟠 Modo quitar reservas ACTIVO (tocá asientos rojos)" : "✅ Modo reserva normal");
+      btnToggleCancel.textContent = nowOn ? "Salir de quitar reservas" : "Quitar reservas";
+    });
   }
+
+  // MODO EDICIÓN (E) (como lo tenías)
+  function fmt(n) { return Math.round(n * 10) / 10; }
   function getPercentCoords(ev) {
     const rect = floorMap.getBoundingClientRect();
     const x = ((ev.clientX - rect.left) / rect.width) * 100;
@@ -421,9 +494,7 @@
     editCursor.style.top = `${y}%`;
   });
 
-  // ==========================
   // INIT
-  // ==========================
   datePick.value = todayISO();
   renderSeats();
   updateSelectionUI();

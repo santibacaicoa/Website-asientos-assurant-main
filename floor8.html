@@ -10,10 +10,13 @@
   <body>
     <main class="floor-page">
       <div class="floor-layout">
-        <!-- Sidebar (calendario + volver) -->
         <aside class="floor-side">
           <div class="side-card">
             <h1 class="side-title">Piso 8</h1>
+
+            <div id="adminBadge" class="admin-badge is-hidden">
+              🛡️ Admin activo (podés cancelar reservas de cualquiera)
+            </div>
 
             <label class="side-label" for="datePick">Fecha</label>
             <input id="datePick" class="side-date" type="date" />
@@ -23,6 +26,9 @@
               <span class="legend-item"><i class="dot busy"></i> Ocupado</span>
               <span class="legend-item"
                 ><i class="dot sel"></i> Seleccionado</span
+              >
+              <span class="legend-item"
+                ><i class="dot cancel"></i> A cancelar</span
               >
             </div>
 
@@ -43,6 +49,32 @@
               <button id="btnClearSel" class="side-btn" type="button" disabled>
                 Limpiar selección
               </button>
+
+              <button
+                id="btnToggleCancel"
+                class="side-btn side-btn-danger"
+                type="button"
+              >
+                Quitar reservas
+              </button>
+
+              <button
+                id="btnConfirmCancel"
+                class="side-btn side-btn-danger"
+                type="button"
+                disabled
+              >
+                Confirmar cancelación
+              </button>
+
+              <button
+                id="btnClearCancel"
+                class="side-btn"
+                type="button"
+                disabled
+              >
+                Limpiar cancelación
+              </button>
             </div>
 
             <button id="btnBackHome" class="side-btn" type="button">
@@ -51,7 +83,6 @@
 
             <p id="sideMsg" class="side-msg"></p>
 
-            <!-- Ayuda modo edición -->
             <div id="editHint" class="edit-hint is-hidden">
               <strong>Modo edición activo</strong>
               <div>Shift + Click → agrega y acumula (copiar todo en HUD)</div>
@@ -60,7 +91,6 @@
           </div>
         </aside>
 
-        <!-- Mapa -->
         <section class="floor-map" id="floorMap" aria-label="Mapa piso 8">
           <img
             id="floorBg"
@@ -71,8 +101,6 @@
           />
 
           <div id="seatsLayer" class="seats-layer" aria-label="Asientos"></div>
-
-          <!-- Cursor/tooltip de edición -->
           <div id="editCursor" class="edit-cursor is-hidden"></div>
         </section>
       </div>

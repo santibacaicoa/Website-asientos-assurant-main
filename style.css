@@ -978,6 +978,68 @@ main.floor-page{
   padding: 24px 18px 120px;/* ✅ tu padding de pisos */
 }
 
+/* ============================
+   ADMIN + CANCELACIÓN
+   ============================ */
+
+.admin-badge{
+  margin: 10px 0 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,.12);
+  background: rgba(255,255,255,.45);
+  color: rgba(0,0,0,.8);
+  font-weight: 700;
+}
+
+/* botón danger */
+.side-btn-danger{
+  background: rgba(220,70,70,.16);
+  border-color: rgba(220,70,70,.35);
+}
+.side-btn-danger:hover{
+  background: rgba(220,70,70,.25);
+  border-color: rgba(220,70,70,.55);
+}
+
+/* dot cancel */
+.dot.cancel{
+  background: rgba(255,170,0,.80);
+  outline: 2px solid rgba(255,255,255,.65);
+}
+
+/* selección para cancelar */
+.seat.is-cancel-selected{
+  background: rgba(255,170,0,.90);
+  box-shadow: 0 0 0 3px rgba(255,255,255,.25), 0 10px 22px rgba(0,0,0,.35);
+  outline: 2px solid rgba(255,255,255,.7);
+  filter: brightness(1.05);
+}
+
+/* cuando está ocupado pero no tenés permiso para cancelarlo */
+.seat.is-locked{
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+/* Asientos deshabilitados (modo cancelar: los libres quedan apagados) */
+.seat.is-disabled{
+  opacity: .35;
+  cursor: not-allowed;
+}
+
+/* Botón "Confirmar cancelación" (si querés marcarlo más) */
+.side-btn.is-danger{
+  background: rgba(220,70,70,.18);
+  border-color: rgba(220,70,70,.45);
+}
+.side-btn.is-danger:hover{
+  background: rgba(220,70,70,.28);
+  border-color: rgba(220,70,70,.65);
+}
+
+
+
 
 /* ==========================================================================
    RESPONSIVE
