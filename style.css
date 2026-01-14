@@ -886,6 +886,63 @@ box-shadow: none;
   background: rgba(255,255,255,.25);
 }
 
+/* ========= Piso 11 - Leyenda + confirmar (cine) ========= */
+
+.seat-legend{
+  display:flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 12px 0 10px;
+  font-size: .9rem;
+  opacity: .95;
+}
+
+.legend-item{
+  display:flex;
+  align-items:center;
+  gap: 8px;
+}
+
+.dot{
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  display:inline-block;
+  border: 2px solid rgba(255,255,255,.85);
+  box-shadow: 0 6px 16px rgba(0,0,0,.25);
+}
+.dot.free{ background: rgba(0,200,120,.65); }
+.dot.busy{ background: rgba(220,70,70,.70); }
+.dot.sel{ background: rgba(220,70,70,.70); outline: 2px solid rgba(255,255,255,.7); }
+
+.confirm-row{
+  margin: 10px 0 14px;
+}
+
+.confirm-count{
+  margin-bottom: 8px;
+  font-weight: 600;
+  text-shadow: 0 2px 10px rgba(0,0,0,.55);
+}
+
+/* Botón principal */
+.side-btn-primary{
+  background: rgba(0,200,120,.22);
+  border-color: rgba(0,200,120,.45);
+}
+.side-btn-primary:hover{
+  background: rgba(0,200,120,.32);
+  border-color: rgba(0,200,120,.70);
+}
+
+/* ========= Asientos ========= */
+/* Libre / ocupado ya los tenías */
+.seat.is-selected{
+  background: rgba(220,70,70,.70);
+  box-shadow: 0 10px 22px rgba(0,0,0,.45);
+  filter: brightness(1.08);
+  outline: 2px solid rgba(255,255,255,.7);
+}
 
 
 /* ==========================================================================

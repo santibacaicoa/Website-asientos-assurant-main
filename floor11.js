@@ -1,24 +1,29 @@
-// floor11.js
+// floor11.js (cine-style reservar y confirmar)
 (() => {
-  const seatLayer = document.getElementById("seatsLayer");
-  const datePick = document.getElementById("datePicker");
-  const msg = document.getElementById("sideMsg");
-  const backBtn = document.getElementById("btnBack");
+  const seatsLayer = document.getElementById("seatsLayer");
   const floorMap = document.getElementById("floorMap");
-  const editBtn = document.getElementById("btnEdit");
+  const datePick = document.getElementById("datePick");
+  const btnBackHome = document.getElementById("btnBackHome");
+  const sideMsg = document.getElementById("sideMsg");
+
+  const btnConfirm = document.getElementById("btnConfirm");
+  const btnClearSel = document.getElementById("btnClearSel");
+  const selCount = document.getElementById("selCount");
+
   const editHint = document.getElementById("editHint");
   const editCursor = document.getElementById("editCursor");
-  const btnCopyPoints = document.getElementById("btnCopyPoints");
-  const editCount = document.getElementById("editCount");
 
-  // ====== Tus asientos (NO los toco) ======
-  // Asegurate de que tu SEATS_11 esté completo como lo dejaste (62 asientos)
-  // Ejemplo:
-  // const SEATS_11 = [
-  //   { id: "11-01", x: 33.0, y: 62.0 },
-  //   ...
-  // ];
-  const SEATS_11 = window.SEATS_11 || [
+  if (!seatsLayer || !floorMap || !datePick || !btnBackHome || !sideMsg) {
+    console.warn("[floor11] faltan elementos en HTML");
+    return;
+  }
+
+  // ==========================
+  // 1) Tus asientos (62) ya listos
+  // ==========================
+  // IMPORTANTE: este archivo asume que acá tenés tu array completo.
+  // Si ya lo tenías armado, dejalo tal cual lo tenés.
+  const SEATS_11 = [
 { id: "11-01", x: 1.8, y: 25.3 },
 { id: "11-02", x: 5.6, y: 25.3 },
 { id: "11-03", x: 10.2, y: 25.2 },
@@ -101,37 +106,88 @@
 { id: "11-80", x: 89.4, y: 14.3 },
 { id: "11-81", x: 86.0, y: 19 },
 { id: "11-82", x: 89.4, y: 19 }
-]; // si vos ya lo tenés definido acá, reemplazá esta línea por tu array
+  ];
 
-  function setMsg(t) {
-    if (!msg) return;
-    msg.textContent = t || "";
+  // ==========================
+  // Helpers UI
+  // ==========================
+  const setMsg = (t) => (sideMsg.textContent = t || "");
+  const todayISO = () => new Date().toISOString().slice(0, 10);
+
+  // ==========================
+  // Estado
+  // ==========================
+  const seatEls = new Map();            // id -> button
+  let occupied = new Set();             // ocupados definitivos de DB
+  let selected = new Set();             // selección temporal (cine)
+
+  // Modo edición
+  let editMode = false;
+
+  function updateSelectionUI() {
+    selCount.textContent = String(selected.size);
+    const has = selected.size > 0;
+    btnConfirm.disabled = !has;
+    btnClearSel.disabled = !has;
   }
 
-  function setDefaultDate() {
-    if (!datePick) return;
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, "0");
-    const dd = String(today.getDate()).padStart(2, "0");
-    datePick.value = `${yyyy}-${mm}-${dd}`;
-  }
+  function applySeatClasses() {
+    seatEls.forEach((btn, id) => {
+      const isOcc = occupied.has(id);
+      const isSel = selected.has(id);
 
-  // Estado de ocupación (viene del backend)
-  const seatEls = new Map(); // asiento_id -> button
-  let busySet = new Set(); // Set(asiento_id)
+      btn.classList.toggle("is-busy", isOcc);
+      btn.classList.toggle("is-free", !isOcc);
 
-  function updateSeatClasses() {
-    seatEls.forEach((btn, asientoId) => {
-      const busy = busySet.has(asientoId);
-      btn.classList.toggle("is-busy", busy);
-      btn.classList.toggle("is-free", !busy);
-      btn.disabled = busy;
+      // selección temporal (cine)
+      btn.classList.toggle("is-selected", isSel);
+
+      // ocupado => disable total
+      btn.disabled = isOcc;
     });
   }
 
-  async function loadBusySeats() {
-    const fecha = datePick?.value;
+  // ==========================
+  // Render
+  // ==========================
+  function renderSeats() {
+    seatsLayer.innerHTML = "";
+    seatEls.clear();
+
+    for (const s of SEATS_11) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "seat is-free";
+      b.style.left = `${s.x}%`;
+      b.style.top = `${s.y}%`;
+      b.dataset.seatId = s.id;
+      b.title = s.id;
+
+      b.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        if (editMode) return; // en edición no reservamos
+        if (occupied.has(s.id)) return;
+
+        // toggle cine
+        if (selected.has(s.id)) selected.delete(s.id);
+        else selected.add(s.id);
+
+        updateSelectionUI();
+        applySeatClasses();
+      });
+
+      seatEls.set(s.id, b);
+      seatsLayer.appendChild(b);
+    }
+
+    applySeatClasses();
+  }
+
+  // ==========================
+  // Backend: cargar ocupados
+  // ==========================
+  async function loadOccupied() {
+    const fecha = datePick.value;
     if (!fecha) return;
 
     try {
@@ -144,213 +200,150 @@
         return;
       }
 
-      busySet = new Set(j.ocupados || []);
-      updateSeatClasses();
+      occupied = new Set(j.ocupados || []);
+
+      // si lo seleccionado quedó ocupado (porque alguien reservó antes), lo sacamos
+      selected.forEach((id) => {
+        if (occupied.has(id)) selected.delete(id);
+      });
+
+      updateSelectionUI();
+      applySeatClasses();
       setMsg("");
-    } catch (err) {
-      console.error(err);
-      setMsg("Error cargando disponibilidad");
+    } catch (e) {
+      console.error(e);
+      setMsg("Error consultando disponibilidad");
     }
   }
 
-  async function reservarAsiento(asientoId) {
+  // ==========================
+  // Backend: confirmar selección
+  // ==========================
+  async function confirmReservation() {
     const reservaId = JSON.parse(localStorage.getItem("reserva.id") || "null");
     if (!reservaId) {
-      setMsg("No encontré la reserva. Volvé al inicio y reintentá.");
+      setMsg("No encontré reserva.id (volvé al inicio y hacé el flujo completo).");
       return;
     }
 
-    const fecha = datePick?.value;
+    const fecha = datePick.value;
     if (!fecha) {
-      setMsg("Elegí una fecha primero.");
+      setMsg("Elegí una fecha.");
+      return;
+    }
+
+    if (selected.size === 0) {
+      setMsg("Seleccioná al menos 1 asiento.");
+      return;
+    }
+
+    // Si es individual, forzamos 1 asiento
+    const tipo = JSON.parse(localStorage.getItem("reserva.tipo") || "null");
+    if (tipo === "individual" && selected.size > 1) {
+      setMsg("Reserva individual: elegí 1 solo asiento.");
       return;
     }
 
     try {
-      setMsg("Reservando…");
-      const r = await fetch("/api/asientos/reservar", {
+      btnConfirm.disabled = true;
+      setMsg("Confirmando…");
+
+      const asientos = Array.from(selected);
+      const r = await fetch("/api/asientos/confirmar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           reserva_id: reservaId,
           piso: 11,
           fecha,
-          asiento_id: asientoId,
+          asientos,
         }),
       });
 
       const j = await r.json().catch(() => null);
 
       if (!r.ok || !j?.ok) {
-        setMsg(j?.error || "No se pudo reservar");
-        if (r.status === 409) {
-          await loadBusySeats(); // deja UI consistente
-        }
+        setMsg(j?.error || "No se pudo confirmar");
+        // si hay conflicto, recargamos ocupados
+        if (r.status === 409) await loadOccupied();
+        updateSelectionUI();
         return;
       }
 
-      busySet.add(asientoId);
-      updateSeatClasses();
-      setMsg("✅ Asiento reservado");
-    } catch (err) {
-      console.error(err);
-      setMsg("Error reservando asiento");
+      // éxito: pasan a ocupados definitivos
+      asientos.forEach((id) => occupied.add(id));
+      selected.clear();
+
+      applySeatClasses();
+      updateSelectionUI();
+
+      setMsg("✅ Reserva confirmada");
+    } catch (e) {
+      console.error(e);
+      setMsg("Error confirmando");
+    } finally {
+      btnConfirm.disabled = selected.size === 0;
     }
   }
 
-  function renderSeats() {
-    if (!seatLayer) return;
-    seatLayer.innerHTML = "";
-    seatEls.clear();
+  // ==========================
+  // Acciones UI
+  // ==========================
+  btnConfirm.addEventListener("click", confirmReservation);
 
-    SEATS_11.forEach((s) => {
-      const b = document.createElement("button");
-      b.className = "seat is-free";
-      b.type = "button";
-      b.dataset.seat = s.id;
-      b.style.left = `${s.x}%`;
-      b.style.top = `${s.y}%`;
-      b.title = s.id;
-      seatEls.set(s.id, b);
+  btnClearSel.addEventListener("click", () => {
+    selected.clear();
+    updateSelectionUI();
+    applySeatClasses();
+    setMsg("");
+  });
 
-      b.addEventListener("click", (ev) => {
-        ev.stopPropagation();
-        if (editMode) return; // en modo edición no reservamos
-        if (busySet.has(s.id)) return;
-        reservarAsiento(s.id);
-      });
+  btnBackHome.addEventListener("click", () => {
+    window.location.href = "home.html";
+  });
 
-      seatLayer.appendChild(b);
-    });
+  datePick.addEventListener("change", async () => {
+    // al cambiar fecha:
+    // 1) limpiamos selección
+    selected.clear();
+    updateSelectionUI();
+    // 2) traemos ocupados
+    await loadOccupied();
+  });
+
+  // ==========================
+  // MODO EDICIÓN (E)
+  // ==========================
+  function fmt(n) {
+    return Math.round(n * 10) / 10;
   }
-
-  // ---- Botón volver ----
-  if (backBtn) {
-    backBtn.addEventListener("click", () => {
-      // si querés limpiar la sesión completa, descomentá:
-      // localStorage.removeItem("session.user");
-      // localStorage.removeItem("reserva.id");
-      // localStorage.removeItem("reserva.floor");
-      window.location.href = "home.html";
-    });
-  }
-
-  // ==========================================================
-  // MODO EDICIÓN (E) + SHIFT CLICK para capturar coordenadas
-  // ==========================================================
-  let editMode = false;
-  let tempIdCounter = 1;
-  const captured = []; // acumulados
-  let pendingSeatEl = null;
-
-  function fmt(num) {
-    return Math.round(num * 10) / 10;
-  }
-
-  function seatIdFromCounter(n) {
-    const padded = String(n).padStart(2, "0");
-    return `11-${padded}`;
-  }
-
-  function updateEditUI() {
-    if (editHint) editHint.classList.toggle("is-hidden", !editMode);
-    if (btnCopyPoints) btnCopyPoints.classList.toggle("is-hidden", !editMode);
-    if (editCount) editCount.textContent = String(captured.length);
-    if (!editMode && editCursor) editCursor.classList.add("is-hidden");
-  }
-
-  function placeCursor(xPercent, yPercent) {
-    if (!editCursor) return;
-    editCursor.classList.remove("is-hidden");
-    editCursor.style.left = `${xPercent}%`;
-    editCursor.style.top = `${yPercent}%`;
-  }
-
-  function getPercentFromEvent(ev) {
+  function getPercentCoords(ev) {
     const rect = floorMap.getBoundingClientRect();
     const x = ((ev.clientX - rect.left) / rect.width) * 100;
     const y = ((ev.clientY - rect.top) / rect.height) * 100;
     return { x: fmt(x), y: fmt(y) };
   }
 
-  function openMiniPrompt(x, y) {
-    // mini “pantallita” sin librerías: confirm() + prompt()
-    const nextId = seatIdFromCounter(tempIdCounter);
-    const ok = confirm(`¿Guardar punto?\nID sugerido: ${nextId}\nx: ${x} / y: ${y}`);
-    if (!ok) return;
-
-    const custom = prompt("Podés editar el ID si querés (Enter para usar el sugerido):", nextId);
-    const finalId = (custom || nextId).trim() || nextId;
-
-    captured.push({ id: finalId, x, y });
-    tempIdCounter++;
-
-    console.log("[PUNTO]", { id: finalId, x, y });
-    setMsg(`Guardado ${finalId}  (x:${x} y:${y})`);
-    if (editCount) editCount.textContent = String(captured.length);
-  }
-
-  // Tecla E para activar/desactivar
   window.addEventListener("keydown", (ev) => {
     if (ev.key.toLowerCase() !== "e") return;
     editMode = !editMode;
-    pendingSeatEl = null;
-    setMsg(editMode ? "🛠️ Modo edición ON (SHIFT+Click para capturar)" : "");
-    updateEditUI();
+    editHint?.classList.toggle("is-hidden", !editMode);
+    setMsg(editMode ? "🛠️ Modo edición ON (no reserva)" : "");
   });
 
-  // Mostrar cursor mientras movés mouse (solo en edición)
-  if (floorMap) {
-    floorMap.addEventListener("mousemove", (ev) => {
-      if (!editMode) return;
-      const { x, y } = getPercentFromEvent(ev);
-      placeCursor(x, y);
-    });
+  floorMap.addEventListener("mousemove", (ev) => {
+    if (!editMode || !editCursor) return;
+    const { x, y } = getPercentCoords(ev);
+    editCursor.classList.remove("is-hidden");
+    editCursor.style.left = `${x}%`;
+    editCursor.style.top = `${y}%`;
+  });
 
-    // SHIFT+Click captura coordenadas
-    floorMap.addEventListener("click", (ev) => {
-      if (!editMode) return;
-      if (!ev.shiftKey) return;
-
-      const { x, y } = getPercentFromEvent(ev);
-      placeCursor(x, y);
-      openMiniPrompt(x, y);
-    });
-  }
-
-  // Copiar todo en el formato que querés
-  if (btnCopyPoints) {
-    btnCopyPoints.addEventListener("click", async () => {
-      const out = captured
-        .map((p) => `{ id: "${p.id}", x: ${p.x}, y: ${p.y} }`)
-        .join("\n");
-
-      try {
-        await navigator.clipboard.writeText(out);
-        setMsg(`📋 Copiado (${captured.length} puntos)`);
-      } catch {
-        // fallback
-        console.log(out);
-        setMsg("No pude copiar automático: te lo dejé en consola.");
-      }
-    });
-  }
-
-  // Botón del UI para entrar/salir edición
-  if (editBtn) {
-    editBtn.addEventListener("click", () => {
-      editMode = !editMode;
-      pendingSeatEl = null;
-      setMsg(editMode ? "🛠️ Modo edición ON (SHIFT+Click para capturar)" : "");
-      updateEditUI();
-    });
-  }
-
-  // Init
-  setDefaultDate();
+  // ==========================
+  // INIT
+  // ==========================
+  datePick.value = todayISO();
   renderSeats();
-  updateSeatClasses();
-  datePick.addEventListener("change", loadBusySeats);
-  loadBusySeats();
-  updateEditUI();
+  updateSelectionUI();
+  loadOccupied();
 })();

@@ -4,71 +4,80 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Piso 11</title>
-    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="/style.css" />
   </head>
 
   <body>
     <main class="floor-page">
-      <section class="floor-layout">
-        <!-- Sidebar -->
+      <div class="floor-layout">
+        <!-- Sidebar (calendario + volver) -->
         <aside class="floor-side">
           <div class="side-card">
-            <h2 class="side-title">Piso 11</h2>
+            <h1 class="side-title">Piso 11</h1>
 
             <label class="side-label" for="datePick">Fecha</label>
             <input id="datePick" class="side-date" type="date" />
+
+            <div class="seat-legend">
+              <span class="legend-item"><i class="dot free"></i> Libre</span>
+              <span class="legend-item"><i class="dot busy"></i> Ocupado</span>
+              <span class="legend-item"
+                ><i class="dot sel"></i> Seleccionado</span
+              >
+            </div>
+
+            <div class="confirm-row">
+              <div class="confirm-count">
+                Seleccionados: <span id="selCount">0</span>
+              </div>
+
+              <button
+                id="btnConfirm"
+                class="side-btn side-btn-primary"
+                type="button"
+                disabled
+              >
+                Confirmar reserva
+              </button>
+
+              <button id="btnClearSel" class="side-btn" type="button" disabled>
+                Limpiar selección
+              </button>
+            </div>
 
             <button id="btnBackHome" class="side-btn" type="button">
               Volver / Cambiar usuario
             </button>
 
-            <div id="sideMsg" class="side-msg"></div>
+            <p id="sideMsg" class="side-msg"></p>
 
-            <!-- Hint de edición (se muestra con tecla E) -->
+            <!-- Ayuda modo edición (solo aparece cuando está activo) -->
             <div id="editHint" class="edit-hint is-hidden">
-              <b>Modo edición:</b> presioná <b>E</b> para activar/desactivar.<br />
-              En edición: <b>Shift + click</b> agrega un punto temporal y copia
-              la coordenada.
+              <strong>Modo edición activo</strong>
+              <div>Shift + Click → agrega y acumula (copiar todo en HUD)</div>
+              <div>Tecla E → activar/desactivar</div>
             </div>
           </div>
         </aside>
 
         <!-- Mapa -->
-        <section class="floor-main">
-          <div class="floor-map" id="floorMap">
-            <!--panel de agregar asientos-->
-            <div id="editPanel" class="edit-panel is-hidden">
-              <strong>🛠 Modo edición</strong>
+        <section class="floor-map" id="floorMap" aria-label="Mapa piso 11">
+          <img
+            id="floorBg"
+            class="floor-bg"
+            src="/images/piso11.png"
+            alt="Plano Piso 11"
+            draggable="false"
+          />
 
-              <div class="edit-row">
-                Asiento: <span id="editSeatId">11-01</span>
-              </div>
+          <div id="seatsLayer" class="seats-layer" aria-label="Asientos"></div>
 
-              <div class="edit-row">X: <span id="editX">0</span> %</div>
-
-              <div class="edit-row">Y: <span id="editY">0</span> %</div>
-
-              <button id="btnSaveSeat">Guardar asiento</button>
-              <button id="btnUndoSeat">Deshacer último</button>
-              <button id="btnExitEdit">Salir edición</button>
-            </div>
-            <!--cierre panel-->
-
-            <img
-              id="floorBg"
-              class="floor-bg"
-              src="/images/piso11.png"
-              alt="Plano piso 11"
-              draggable="false"
-            />
-
-            <div id="seatsLayer" class="seats-layer"></div>
-            <div id="editCursor" class="edit-cursor is-hidden"></div>
-          </div>
+          <!-- Cursor/tooltip de edición -->
+          <div id="editCursor" class="edit-cursor is-hidden"></div>
         </section>
-      </section>
+      </div>
     </main>
 
-    <script src="floor11.js"></script>
+    <script src="/floor11.js"></script>
   </body>
 </html>
