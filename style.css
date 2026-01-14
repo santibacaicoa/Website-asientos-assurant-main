@@ -678,7 +678,7 @@ box-shadow: none;
 
 /* Layout general: sidebar + mapa */
 .floor-layout{
-  width: min(2000px, 98vw);   /* ⬅️ más ancho total */
+  width: min(1700px, 98vw);   /* ⬅️ más ancho total */
   margin: 0 auto;
   display: grid;
   grid-template-columns: 1fr 5fr; /* sidebar un poco más chico */
@@ -762,21 +762,17 @@ box-shadow: none;
 /* Contenedor del mapa: más grande y centrado */
 .floor-map{
   position: relative;
-
-  /* esto hace que el plano se vea GRANDE sin romper responsive */
-  width: min(2000px, 98%);
-  margin: 0 auto;
-
-  border-radius: 16px;
+  border-radius: 14px;
   overflow: hidden;
+  border: 1px solid rgba(255,255,255,.18);
+  box-shadow: 0 18px 55px rgba(0,0,0,.35);
 
-  /* borde + sombra suave */
-  border: 1px solid rgba(0,0,0,.10);
-  box-shadow: 0 22px 70px rgba(0,0,0,.22);
-
-  /* sin "fondo extra" detrás del plano (solo transparencia suave) */
-  background: rgba(255,255,255,.10);
+  /* ✅ IMPORTANTE: si Piso 8 usa background-image, esto evita el recorte */
+  background-repeat: no-repeat;
+  background-position: center top;
+  background-size: contain;
 }
+
 
 /* Imagen del plano */
 .floor-bg{
@@ -786,6 +782,7 @@ box-shadow: none;
   user-select:none;
   -webkit-user-drag:none;
 }
+
 
 /* Capa arriba para botones */
 .seats-layer{
@@ -968,6 +965,17 @@ box-shadow: none;
 .seat.is-selected{
   background: rgba(220, 70, 70, .85);
   box-shadow: 0 0 0 3px rgba(255,255,255,.25), 0 10px 22px rgba(0,0,0,.35);
+}
+
+/* ============================= */
+/* FIX: Los pisos NO deben usar main en 50vh (eso era para el login) */
+/* ============================= */
+
+main.floor-page{
+  height: auto;            /* ✅ deja crecer el contenido */
+  min-height: 100vh;       /* ✅ ocupa pantalla completa */
+  display: block;          /* ✅ evita el centrado flex del login */
+  padding: 24px 18px 120px;/* ✅ tu padding de pisos */
 }
 
 
