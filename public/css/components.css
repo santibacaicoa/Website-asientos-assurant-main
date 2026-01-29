@@ -299,3 +299,31 @@ ERROR + BOTONES (FLOOR11)
 
 /* Si no lo tenías ya en tu CSS */
 .is-hidden{ display:none !important; }
+
+/* ============================= */
+/* Login usuario - alineación    */
+/* ============================= */
+
+.login-row{
+  display: grid;
+
+  /* antes: input + botón en la misma fila */
+  grid-template-columns: minmax(220px, 420px);
+  grid-template-rows: auto auto;
+
+  gap: 10px;
+  justify-content: center;
+  justify-items: center;
+  align-items: center;
+  margin: 0 auto;
+}
+
+.login-row .field-input{
+  width: 100%;
+}
+
+.login-row .btn-inline{
+  white-space: nowrap;
+  width: 100%;
+  max-width: 220px;
+}

@@ -154,6 +154,47 @@ background: rgba(255,255,255,0.18);
 }
 
 /* ==========================================================================
+CAPAS DE FONDO Y EDIFICIO
+========================================================================== */
+
+/* Fondo base (SIN ZOOM) */
+.bg-base{
+position: fixed;
+inset: 0;
+z-index: 0;
+background-image: url('/assets/images/captura.png');
+background-size: cover;
+background-position: center;
+pointer-events: none;
+}
+
+/* Edificio (SIN ZOOM) */
+.bg-building{
+position: fixed;
+inset: 0;
+z-index: 1;
+transition: transform 0.2s ease;
+transform: translateY(180px) scale(0.6);
+display: flex;
+align-items: baseline;
+justify-content: center;
+scale: 0.60;
+}
+
+/* Estado de zoom */
+.zoom-building{
+position: fixed;
+inset: 0;
+z-index: 1;
+transition: transform 0.2 ease;
+transform: translateY(140px) scale(0.8);
+display: flex;
+align-items: baseline;
+justify-content: center;
+}
+
+
+/* ==========================================================================
    RESPONSIVE
    ========================================================================== */
 

@@ -60,23 +60,6 @@ text-align: center;
 ESCENA: CANVAS + LOGIN PANEL
 ========================================================================== */
 
-.sky{
-position: relative;
-min-height: 60vh;
-display: grid;
-place-items: center;
-overflow: hidden;
-}
-
-#flightCanvas{
-position: fixed;
-top: 0; left: 0;
-width: 100vw; height: 100vh;
-display: block;
-z-index: 2;
-background: transparent;
-}
-
 .login-panel{
 position: absolute;
 inset: 0;
@@ -95,4 +78,81 @@ flex-direction: column;
 align-items: center;
 gap: 10px;
 padding: 8px 12px;
+}
+
+
+
+/* ==========================================================================
+   RESPONSIVE
+   ========================================================================== */
+
+@media (max-width: 1700px){
+    .logo{
+        height: 100px;
+    }
+
+    .floor-layer{
+      width: 100%;        /* antes: 100vw */
+      max-width: 400px;
+      min-width: 140px;
+    }
+
+.floor-layer-8{
+  bottom: 18%
+}
+
+.floor-layer-11{
+  bottom: 36%;
+}
+
+.floor-layer-12{
+  bottom: 55.7%;
+}
+
+.panel{ width: 92vw; height: auto; min-height: 70vh; }
+.choices{ grid-template-columns: 1fr; }
+
+.floors-layout{
+    grid-template-columns: minmax(260px, 1fr);
+    padding: 1rem 1rem 2rem;
+  }
+
+.floor-ui{
+    max-width: 100%;
+    top: 180px;
+    left: auto;
+    height: 75px;
+}  
+
+.floor-subtitle{
+    display: none;
+}
+}
+
+@media (max-width: 720px){
+  .input-clave{ width: 90vw; }
+
+  .floor-layer{
+    width: 100%;
+    max-width: 340px;
+    min-width: 90px;
+}
+
+.floor-layer-8{
+  bottom: 12.3%;
+}
+
+.floor-layer-11{
+  bottom: 24.6%;
+}
+
+.floor-layer-12{
+  bottom: 38.1%;
+}
+
+.building-frame{
+  width: min(100vw, 350px);
+  aspect-ratio: 5 / 11.9 /* ajustá si tu edificio es más alto/bajo */
+}
+
 }
