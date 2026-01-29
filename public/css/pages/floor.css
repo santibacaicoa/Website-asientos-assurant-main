@@ -1,0 +1,403 @@
+/* ============================= */
+/* FLOOR 11 - Layout + Mapa      */
+/* ============================= */
+
+.floor-page{
+  min-height: 100vh;
+  padding: 28px 18px 120px;
+
+  /* Fondo general (evita blanco) */
+  background: linear-gradient(180deg,
+    rgba(215, 230, 240, 0.95) 0%,
+    rgba(200, 220, 235, 0.92) 40%,
+    rgba(185, 205, 220, 0.95) 100%
+  );
+}
+
+/* Layout general: sidebar + mapa */
+.floor-layout{
+  width: min(1700px, 98vw);   /* ⬅️ más ancho total */
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 5fr; /* sidebar un poco más chico */
+  gap: 24px;
+  align-items: start;
+}
+
+
+/* En pantallas chicas apila */
+@media (max-width: 800px){
+  .floor-layout{
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Sidebar */
+.floor-side .side-card{
+  background: rgba(255,255,255,.35);
+  border: 1px solid rgba(0,0,0,.08);
+  border-radius: 16px;
+  padding: 30px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 18px 55px rgba(0,0,0,.20);
+  color: rgba(0,0,0,.78);
+}
+
+.side-title{
+  margin: 0 0 12px;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: rgba(0,0,0,.78);
+}
+
+.side-label{
+  display:block;
+  margin: 10px 0 6px;
+  color: rgba(0,0,0,.70);
+}
+
+.side-date{
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,.10);
+  background: rgba(255,255,255,.40);
+  color: rgba(0,0,0,.78);
+  outline: none;
+  font-size: 1.2rem;
+}
+
+.side-msg{
+  margin-top: 12px;
+  min-height: 18px;
+  color: rgba(0,0,0,.70);
+}
+
+/* ============================= */
+/* Mapa (plano)                  */
+/* ============================= */
+
+/* Contenedor del mapa: más grande y centrado */
+.floor-map{
+  position: relative;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,.18);
+  box-shadow: 0 18px 55px rgba(0,0,0,.35);
+
+  /* ✅ IMPORTANTE: si Piso 8 usa background-image, esto evita el recorte */
+  background-repeat: no-repeat;
+  background-position: center top;
+  background-size: contain;
+}
+
+
+/* Imagen del plano */
+.floor-bg{
+  display:block;
+  width:100%;
+  height:auto;
+  user-select:none;
+  -webkit-user-drag:none;
+}
+
+
+/* Capa arriba para botones */
+.seats-layer{
+  position:absolute;
+  inset:0;
+}
+
+/* Asiento */
+.seat{
+  position:absolute;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 2px solid rgba(255,255,255,.92);
+  transform: translate(-50%, -50%);
+  box-shadow: 0 6px 16px rgba(0,0,0,.35);
+  cursor:pointer;
+  transition: transform .12s ease, filter .12s ease, opacity .12s ease;
+}
+
+.seat:hover{
+  transform: translate(-50%, -50%) scale(1.15);
+  filter: brightness(1.08);
+}
+
+.seat.is-free{ background: rgba(0,200,120,.72); }
+.seat.is-busy{ background: rgba(220,70,70,.78); cursor:not-allowed; opacity:.92; }
+
+/* Helpers edición */
+.is-hidden{ display:none !important; }
+
+.edit-hint{
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px dashed rgba(0,0,0,.25);
+  background: rgba(255,255,255,.35);
+  font-size: .9rem;
+  line-height: 1.35;
+  color: rgba(0,0,0,.72);
+}
+
+.edit-cursor{
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  border: 2px solid rgba(255,255,255,.95);
+  background: rgba(0,0,0,.12);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  box-shadow: 0 6px 14px rgba(0,0,0,.35);
+}
+
+/*panel para agregar asientos*/
+.edit-panel{
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 20;
+
+  width: 200px;
+  padding: 12px;
+
+  border-radius: 14px;
+  background: rgba(0,0,0,.55);
+  color: #fff;
+
+  font-size: .85rem;
+  line-height: 1.35;
+
+  box-shadow: 0 12px 30px rgba(0,0,0,.45);
+}
+
+.edit-panel strong{
+  display: block;
+  margin-bottom: 8px;
+}
+
+.edit-row{
+  margin-bottom: 6px;
+}
+
+.edit-panel button{
+  width: 100%;
+  margin-top: 6px;
+  padding: 8px 10px;
+
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+
+  background: rgba(255,255,255,.15);
+  color: #fff;
+}
+
+.edit-panel button:hover{
+  background: rgba(255,255,255,.25);
+}
+
+/* ========= Piso 11 - Leyenda + confirmar (cine) ========= */
+
+.seat-legend{
+  display:flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 12px 0 10px;
+  font-size: .9rem;
+  opacity: .95;
+}
+
+.legend-item{
+  display:flex;
+  align-items:center;
+  gap: 8px;
+}
+
+.dot{
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  display:inline-block;
+  border: 2px solid rgba(255,255,255,.85);
+  box-shadow: 0 6px 16px rgba(0,0,0,.25);
+}
+.dot.free{ background: rgba(0,200,120,.65); }
+.dot.busy{ background: rgba(220,70,70,.70); }
+.dot.sel{ background: rgba(220,70,70,.70); outline: 2px solid rgba(255,255,255,.7); }
+
+.confirm-row{
+  margin: 10px 0 14px;
+}
+
+.confirm-count{
+  margin-bottom: 8px;
+  font-weight: 600;
+  text-shadow: 0 2px 10px rgba(0,0,0,.55);
+}
+
+/* ========= Asientos ========= */
+/* Libre / ocupado ya los tenías */
+.seat.is-selected{
+  background: rgba(220,70,70,.70);
+  box-shadow: 0 10px 22px rgba(0,0,0,.45);
+  filter: brightness(1.08);
+  outline: 2px solid rgba(255,255,255,.7);
+}
+
+/* Tooltip asientos ocupados (hover) */
+.seat-tooltip{
+  position: fixed;
+  z-index: 99999;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,.25);
+  background: rgba(0,0,0,.72);
+  color: #fff;
+  font-size: 0.9rem;
+  line-height: 1.1;
+  box-shadow: 0 14px 40px rgba(0,0,0,.35);
+  pointer-events: none;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+/* Si no lo tenías ya en tu CSS */
+.is-hidden{ display:none !important; }
+
+/* (Opcional) estado de selección temporal */
+.seat.is-selected{
+  background: rgba(220, 70, 70, .85);
+  box-shadow: 0 0 0 3px rgba(255,255,255,.25), 0 10px 22px rgba(0,0,0,.35);
+}
+
+/* ============================= */
+/* FIX: Los pisos NO deben usar main en 50vh (eso era para el login) */
+/* ============================= */
+
+main.floor-page{
+  height: auto;            /* ✅ deja crecer el contenido */
+  min-height: 100vh;       /* ✅ ocupa pantalla completa */
+  display: block;          /* ✅ evita el centrado flex del login */
+  padding: 24px 18px 120px;/* ✅ tu padding de pisos */
+}
+
+/* ============================
+   ADMIN + CANCELACIÓN
+   ============================ */
+
+.admin-badge{
+  margin: 10px 0 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,.12);
+  background: rgba(255,255,255,.45);
+  color: rgba(0,0,0,.8);
+  font-weight: 700;
+}
+
+/* dot cancel */
+.dot.cancel{
+  background: rgba(255,170,0,.80);
+  outline: 2px solid rgba(255,255,255,.65);
+}
+
+/* selección para cancelar */
+.seat.is-cancel-selected{
+  background: rgba(255,170,0,.90);
+  box-shadow: 0 0 0 3px rgba(255,255,255,.25), 0 10px 22px rgba(0,0,0,.35);
+  outline: 2px solid rgba(255,255,255,.7);
+  filter: brightness(1.05);
+}
+
+/* cuando está ocupado pero no tenés permiso para cancelarlo */
+.seat.is-locked{
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+/* Asientos deshabilitados (modo cancelar: los libres quedan apagados) */
+.seat.is-disabled{
+  opacity: .35;
+  cursor: not-allowed;
+}
+
+/* ==========================================================================
+   RESPONSIVE
+   ========================================================================== */
+
+@media (max-width: 1700px){
+    .logo{
+        height: 100px;
+    }
+
+    .floor-layer{
+      width: 100%;        /* antes: 100vw */
+      max-width: 400px;
+      min-width: 140px;
+    }
+
+.floor-layer-8{
+  bottom: 18%
+}
+
+.floor-layer-11{
+  bottom: 36%;
+}
+
+.floor-layer-12{
+  bottom: 55.7%;
+}
+
+.panel{ width: 92vw; height: auto; min-height: 70vh; }
+.choices{ grid-template-columns: 1fr; }
+
+.floors-layout{
+    grid-template-columns: minmax(260px, 1fr);
+    padding: 1rem 1rem 2rem;
+  }
+
+.floor-ui{
+    max-width: 100%;
+    top: 180px;
+    left: auto;
+    height: 75px;
+}  
+
+.floor-subtitle{
+    display: none;
+}
+}
+
+@media (max-width: 720px){
+  .input-clave{ width: 90vw; }
+
+  .floor-layer{
+    width: 100%;
+    max-width: 340px;
+    min-width: 90px;
+}
+
+.floor-layer-8{
+  bottom: 12.3%;
+}
+
+.floor-layer-11{
+  bottom: 24.6%;
+}
+
+.floor-layer-12{
+  bottom: 38.1%;
+}
+
+.building-frame{
+  width: min(100vw, 350px);
+  aspect-ratio: 5 / 11.9 /* ajustá si tu edificio es más alto/bajo */
+}
+
+}

@@ -1,0 +1,198 @@
+/* ==========================================================================
+   PÁGINA DE PISOS (floors.html) — OPCIÓN A: CAPAS POR PISO CON CONTENEDOR
+   ========================================================================== */
+
+.page-floors main{
+  height: auto;
+}
+
+.floors-layout{
+  position: relative;
+  z-index: 3;
+  min-height: 50vh;
+  width: 100%;
+  padding: 1.5rem 2rem 3rem;
+}
+
+.floor-ui{
+  background: rgba(0, 0, 0, 0.245);
+  border-radius: 14px;
+  padding: 1.5rem 1.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.068);
+  box-shadow: 0 14px 40px rgba(0,0,0,0.4);
+  color: #fff;
+  width: 400px;
+  height: 150px;
+  text-align: center;
+  position: fixed;
+  top: 100px;
+  left: 100px;
+}
+
+.floor-title{
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: .5rem;
+}
+
+.floor-subtitle{
+  font-size: .95rem;
+  opacity: .9;
+  margin-bottom: 1.1rem;
+}
+
+/* Edificio un poco más brillante en la página de pisos */
+.page-floors .bg-building{
+  filter: brightness(1.15) contrast(1.05);
+}
+
+/* Wrapper lógico para el edificio */
+.floor-layers{
+  position: relative;
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* Contenedor común del edificio (marco) */
+.building-frame{
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: min(100vw, 500px);
+  aspect-ratio: 3 / 4; /* ajustá si tu edificio es más alto/bajo */
+  pointer-events: none;
+}
+
+/* Cada piso como imagen recortada, relativa al marco */
+.floor-layer{
+  position: absolute;
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  width: 100%;
+  opacity: 0.80;
+  pointer-events: auto;
+  cursor: pointer;
+  transition:
+    opacity .18s ease,
+    transform .18s ease,
+    filter .18s ease;
+}
+
+/* Coordenadas aproximadas por piso (tuneá a ojo según tus recortes) */
+.floor-layer-7{
+  bottom: 0%;
+}
+
+
+.floor-layer-8{
+  bottom: 22.5%;
+}
+
+.floor-layer-11{
+  bottom: 45%;
+}
+
+.floor-layer-12{
+  bottom: 69.6%;
+}
+
+/* Highlight al pasar por el piso */
+.floor-layer:hover{
+  opacity: 1;
+  transform: scale(1.05);
+  filter:
+    drop-shadow(0 0 18px rgba(255,255,255,0.75))
+    drop-shadow(0 0 26px rgba(88,170,255,0.6));
+
+}
+
+
+/* FLOOR PROXIMAMENTE */
+
+.floor-proximamente{
+    background-color: #095fb5af;
+    color: white;
+    height: 100vh;
+    width: 100vw;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+}
+
+/* ==========================================================================
+   RESPONSIVE
+   ========================================================================== */
+
+@media (max-width: 1700px){
+    .logo{
+        height: 100px;
+    }
+
+    .floor-layer{
+      width: 100%;        /* antes: 100vw */
+      max-width: 400px;
+      min-width: 140px;
+    }
+
+.floor-layer-8{
+  bottom: 18%
+}
+
+.floor-layer-11{
+  bottom: 36%;
+}
+
+.floor-layer-12{
+  bottom: 55.7%;
+}
+
+.panel{ width: 92vw; height: auto; min-height: 70vh; }
+.choices{ grid-template-columns: 1fr; }
+
+.floors-layout{
+    grid-template-columns: minmax(260px, 1fr);
+    padding: 1rem 1rem 2rem;
+  }
+
+.floor-ui{
+    max-width: 100%;
+    top: 180px;
+    left: auto;
+    height: 75px;
+}  
+
+.floor-subtitle{
+    display: none;
+}
+}
+
+@media (max-width: 720px){
+  .input-clave{ width: 90vw; }
+
+  .floor-layer{
+    width: 100%;
+    max-width: 340px;
+    min-width: 90px;
+}
+
+.floor-layer-8{
+  bottom: 12.3%;
+}
+
+.floor-layer-11{
+  bottom: 24.6%;
+}
+
+.floor-layer-12{
+  bottom: 38.1%;
+}
+
+.building-frame{
+  width: min(100vw, 350px);
+  aspect-ratio: 5 / 11.9 /* ajustá si tu edificio es más alto/bajo */
+}
+
+}

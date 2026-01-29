@@ -1,0 +1,301 @@
+/* ==========================================================================
+HEADER + LOGO
+========================================================================== */
+
+header{
+display: flex;
+justify-content: center;
+align-items: center;
+height: 100px;
+z-index: 20;
+position: fixed;
+top: 70px;
+}
+
+.logo{
+height: 150px;
+transition: transform 0.3s ease, filter 0.4s ease;
+filter:
+drop-shadow(0 0 20px rgba(255,255,255,0.6))
+drop-shadow(0 0 40px rgba(255,255,255,0.4))
+drop-shadow(0 0 60px rgba(0,150,255,0.3));
+}
+
+.logo:hover{
+transform: scale(1.2);
+filter:
+drop-shadow(0 0 30px rgba(255,255,255,0.9))
+drop-shadow(0 0 60px rgba(255,255,255,0.6));
+}
+
+/* ==========================================================================
+LOGIN: INPUT CLAVE + OJO
+========================================================================== */
+
+.input-wrap{
+position: relative;
+display: flex;
+justify-content: center;
+align-items: center;
+}
+
+.input-clave{
+padding: 12px 48px 12px 48px;
+font-size: 16px;
+border: 2px solid #ccc;
+border-radius: 10px;
+outline: none;
+color: #333;
+width: 400px;
+text-align: center;
+}
+
+.input-clave::placeholder{
+color: #888;
+text-align: center;
+transition: opacity 0.2s ease;
+}
+
+.input-clave:focus::placeholder,
+.input-clave:not(:placeholder-shown)::placeholder{ opacity: 0; }
+
+.toggle-pwd{
+position: absolute;
+right: 16px;
+top: 50%;
+transform: translateY(-50%);
+border: none;
+background: transparent;
+cursor: pointer;
+padding: 6px;
+border-radius: 5px;
+color: #8a8a8a;
+opacity: 0;
+transition: opacity .2s ease, background-color .2s ease, scale .15s ease;
+line-height: 0;
+}
+
+.input-wrap:hover .toggle-pwd,
+.input-clave:focus + .toggle-pwd{ opacity: 1; }
+
+.toggle-pwd:hover,
+.toggle-pwd:focus{ background-color: rgba(0,0,0,.05); }
+
+.toggle-pwd:hover{ scale: 1.05; }
+
+.toggle-pwd[aria-pressed="true"]{ color:#6e6e6e; }
+
+.toggle-pwd svg{ display:block; pointer-events:none; }
+
+/* ==========================================================================
+LOGIN: ERROR + BOTÓN ACCEDER
+========================================================================== */
+
+.error-msg{
+color: red;
+font-size: 14px;
+line-height: 18px;
+height: 18px;
+margin: 2px 0 0 0;
+visibility: hidden;
+}
+.error-msg.show{ visibility: visible; }
+
+.btn-acceder{
+margin-top: 6px;
+padding: 10px 20px;
+background-color: #1e90ff;
+color: white;
+border: none;
+border-radius: 8px;
+cursor: pointer;
+transition: background-color .25s ease, transform .08s ease, box-shadow .08s ease;
+}
+
+.btn-acceder:hover{ background-color: #0b6edb; }
+
+.btn-acceder:active{
+transform: scale(0.90);
+box-shadow: 0 2px 8px rgba(0,0,0,.15) inset;
+}
+/* ==========================================================================
+BOTÓN CONTINUAR
+========================================================================== */
+
+.btn-continuar{
+margin-top: 1rem;
+padding: 0.8rem 2.2rem;
+background: rgba(255,255,255,0.08);
+border: 1px solid rgba(255,255,255,0.18);
+border-radius: 12px;
+color: #fff;
+font-size: 1rem;
+font-weight: 500;
+letter-spacing: .3px;
+cursor: pointer;
+transition:
+background 0.25s ease,
+border-color 0.25s ease,
+box-shadow 0.25s ease,
+transform 0.15s ease;
+backdrop-filter: blur(6px);
+-webkit-backdrop-filter: blur(6px);
+}
+
+.btn-continuar:hover:not(:disabled){
+background: rgba(255,255,255,0.16);
+border-color: rgba(88,170,255,0.9);
+box-shadow: 0 0 14px rgba(88,170,255,0.3);
+transform: translateY(-1px);
+}
+
+.btn-continuar:active:not(:disabled){
+transform: scale(0.96);
+box-shadow: 0 0 0 4px rgba(88,170,255,0.25) inset;
+}
+
+.btn-continuar:disabled{
+opacity: 0.4;
+cursor: not-allowed;
+background: rgba(255,255,255,0.05);
+border-color: rgba(255,255,255,0.1);
+box-shadow: none;
+}
+
+/* ==========================================================================
+ERROR + BOTONES (ESTAN EN HOME)
+=========================================================================== */
+
+.btn-inline{
+  padding: 8px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.18);
+  background: rgba(0,0,0,.12);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: transform .12s ease, background .12s ease, border-color .12s ease;
+}
+
+.btn-inline:hover{
+  transform: translateY(-1px);
+  background: rgba(0,0,0,.18);
+  border-color: rgba(255,255,255,.26);
+}
+
+.btn-secondary{
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.18);
+  background: rgba(255,255,255,.08);
+  color: white;
+  font-size: 0.95rem;
+  cursor: pointer;
+
+  /* nuevo: más aire vertical */
+  margin-top: 8px;
+
+  transition:
+    background 0.15s ease,
+    transform 0.12s ease,
+    border-color 0.15s ease;
+}
+
+.btn-secondary:hover{
+  background: rgba(255,255,255,.15);
+  border-color: rgba(255,255,255,.35);
+  transform: translateY(-1px);
+}
+
+.login-row .btn-inline{
+  white-space: nowrap;
+  width: 100%;
+  max-width: 220px;
+}
+
+.row-inline{
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.msg{
+  margin-top: 15px;   
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.is-hidden { display: none !important; }
+
+.grid-2{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 680px){
+  .grid-2{
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ==========================================================================
+ERROR + BOTONES (FLOOR11)
+=========================================================================== */
+
+.side-btn{
+  width: 100%;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(0,0,0,.10);
+  background: rgba(255,255,255,.35);
+  color: rgba(0,0,0,.78);
+  cursor: pointer;  
+  font-size: 1.1rem;
+  transition: background .15s ease, transform .12s ease, border-color .15s ease;
+}
+
+.side-btn:hover{
+  background: rgba(255,255,255,.55);
+  border-color: rgba(0,0,0,.16);
+  transform: translateY(-1px);
+}
+
+/* Botón principal */
+.side-btn-primary{
+  background: rgba(0,200,120,.22);
+  border-color: rgba(0,200,120,.45);
+}
+.side-btn-primary:hover{
+  background: rgba(0,200,120,.32);
+  border-color: rgba(0,200,120,.70);
+}
+
+/* botón danger */
+.side-btn-danger{
+  background: rgba(220,70,70,.16);
+  border-color: rgba(220,70,70,.35);
+}
+.side-btn-danger:hover{
+  background: rgba(220,70,70,.25);
+  border-color: rgba(220,70,70,.55);
+}
+
+/* Botón "Confirmar cancelación" (si querés marcarlo más) */
+.side-btn.is-danger{
+  background: rgba(220,70,70,.18);
+  border-color: rgba(220,70,70,.45);
+}
+.side-btn.is-danger:hover{
+  background: rgba(220,70,70,.28);
+  border-color: rgba(220,70,70,.65);
+}
+
+/* Helpers edición */
+.is-hidden{ display:none !important; }
+
+/* Si no lo tenías ya en tu CSS */
+.is-hidden{ display:none !important; }

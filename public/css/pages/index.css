@@ -1,0 +1,98 @@
+/* ==========================================================================
+CAPAS DE FONDO Y EDIFICIO
+========================================================================== */
+
+/* Fondo base (SIN ZOOM) */
+.bg-base{
+position: fixed;
+inset: 0;
+z-index: 0;
+background-image: url('/assets/images/captura.png');
+background-size: cover;
+background-position: center;
+pointer-events: none;
+}
+
+/* Edificio (SIN ZOOM) */
+.bg-building{
+position: fixed;
+inset: 0;
+z-index: 1;
+transition: transform 0.2s ease;
+transform: translateY(180px) scale(0.6);
+display: flex;
+align-items: baseline;
+justify-content: center;
+scale: 0.60;
+}
+
+/* Estado de zoom */
+.zoom-building{
+position: fixed;
+inset: 0;
+z-index: 1;
+transition: transform 0.2 ease;
+transform: translateY(140px) scale(0.8);
+display: flex;
+align-items: baseline;
+justify-content: center;
+}
+
+/* ==========================================================================
+LOGIN: MAIN + TIPOGRAFÍA
+========================================================================== */
+
+.page-index main{
+height: 50vh;
+display: flex;
+flex-direction: column;
+justify-content: center;
+align-items: center;
+}
+
+.color-texto{
+color: white;
+margin-bottom: 15px;
+text-align: center;
+}
+
+/* ==========================================================================
+ESCENA: CANVAS + LOGIN PANEL
+========================================================================== */
+
+.sky{
+position: relative;
+min-height: 60vh;
+display: grid;
+place-items: center;
+overflow: hidden;
+}
+
+#flightCanvas{
+position: fixed;
+top: 0; left: 0;
+width: 100vw; height: 100vh;
+display: block;
+z-index: 2;
+background: transparent;
+}
+
+.login-panel{
+position: absolute;
+inset: 0;
+display: grid;
+place-items: center;
+pointer-events: none;
+z-index: 3;
+top: 300px;
+}
+
+.login-panel > *{ pointer-events: auto; }
+
+.login-card{
+display: flex;
+flex-direction: column;
+align-items: center;
+gap: 10px;
+padding: 8px 12px;
+}
