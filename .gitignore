@@ -1,0 +1,31 @@
+# =====================
+# Secrets / Environment
+# =====================
+.env
+
+# =====================
+# Node
+# =====================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# =====================
+# OS / Editor junk
+# =====================
+.DS_Store
+Thumbs.db
+
+# =====================
+# Build / cache
+# =====================
+.cache
+dist
+build
+
+# =====================
+# Logs
+# =====================
+logs
+*.log

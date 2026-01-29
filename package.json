@@ -8,7 +8,8 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/santibacaicoa/Website-lugares-assurant.git"
+    "url": "git+https://github.com/santibacaicoa/Website-lugares-assurant.git",
+    "start": "node server/server.js"
   },
   "keywords": [],
   "author": "",
