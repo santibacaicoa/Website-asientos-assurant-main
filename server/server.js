@@ -8,7 +8,8 @@ const app = express();
 app.use(express.json());
 
 // Static (importantísimo para /images/...)
-app.use(express.static(path.join(__dirname)));
+app.use(express.static(path.join(__dirname, "..", "public")));
+
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
