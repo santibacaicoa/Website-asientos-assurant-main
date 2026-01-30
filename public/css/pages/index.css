@@ -283,10 +283,11 @@
 
 @media (max-width: 700px) {
   .assurant-cover {
-    right: 200px;
-    bottom: 100px;
-  }
+    right: auto;          /* ✅ anula desktop */
+    bottom: 100px;        /* podés mantenerlo o cambiarlo */
+    left: 50%;            /* ✅ centro horizontal */
+    transform: translateX(-50%); /* ✅ centra perfecto */
 
-  .assurant-cover img {
-  }
+    /* opcional: si querés que no se vaya a los bordes */
+    max-width: calc(100vw - 24px);}
 }
