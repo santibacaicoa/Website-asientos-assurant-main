@@ -3,131 +3,140 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Pantalla de acceso</title>
+    <title>Acceso</title>
+
+    <!-- Podés dejar base/components si querés consistencia global.
+         Si querés FULL limpio, eliminá estas 2 líneas. -->
     <link rel="stylesheet" href="/css/base.css" />
     <link rel="stylesheet" href="/css/components.css" />
+
+    <!-- Este es el único CSS que realmente importa para el nuevo index -->
     <link rel="stylesheet" href="/css/pages/index.css" />
-    <link rel="stylesheet" href="/css/scene.css" />
   </head>
 
   <body class="page-index">
-    <!-- ======================= HEADER ======================= -->
-    <header>
-      <a href="/index.html">
-        <img
-          src="/assets/images/assurant_logo.png"
-          alt="Logo Assurant"
-          class="logo"
-        />
-      </a>
-    </header>
+    <!-- Earth Studio sequence -->
+    <canvas id="earthCanvas" aria-hidden="true"></canvas>
 
-    <!-- ======================= MAIN ======================= -->
-    <main class="sky">
-      <!-- Fondo base (Captura) -->
-      <div class="bg-base"></div>
+    <!-- Flight canvas (aparece al final) -->
+    <canvas id="flightCanvas" aria-hidden="true"></canvas>
 
-      <!-- Edificio (se hace zoom en index) -->
-      <div class="bg-building">
-        <img
-          class="scale-transition"
-          src="/assets/images/building.png"
-          alt=""
-        />
-      </div>
+    <!-- Overlay Assurant para cubrir Google Earth -->
+    <div class="assurant-cover" aria-hidden="true">
+      <span class="assurant-text">ASSURANT</span>
+      <img src="/assets/images/assurant_logo.png" alt="Assurant" />
+    </div>
 
-      <!-- Canvas del niño -->
-      <canvas
-        id="flightCanvas"
-        aria-label="Animación niño en caja volando"
-      ></canvas>
+    <!-- Login UI (aparece al final) -->
+    <main class="auth hidden" id="authUI">
+      <section class="auth__card">
+        <header class="auth__header">
+          <img
+            class="auth__logo"
+            src="/assets/images/assurant_logo.png"
+            alt="Assurant"
+          />
+          <h1 class="auth__title">Acceso</h1>
+          <p class="auth__subtitle">Ingresá con tu cuenta</p>
+        </header>
 
-      <!-- Panel login -->
-      <div class="login-panel">
-        <div class="login-card">
-          <p class="color-texto">Clave de acceso</p>
+        <form class="auth__form" id="loginForm">
+          <label class="auth__label" for="loginEmail">Email</label>
+          <input
+            class="auth__input"
+            id="loginEmail"
+            type="email"
+            autocomplete="email"
+            required
+          />
 
-          <div class="input-wrap">
-            <input
-              type="password"
-              placeholder="Clave"
-              class="input-clave"
-              id="clave"
-              aria-label="Clave de acceso"
-            />
+          <label class="auth__label" for="loginPass">Contraseña</label>
+          <input
+            class="auth__input"
+            id="loginPass"
+            type="password"
+            autocomplete="current-password"
+            required
+          />
+
+          <button class="auth__btn" type="submit">Iniciar sesión</button>
+
+          <p class="auth__error" id="errorMsg" role="alert"></p>
+        </form>
+
+        <div class="auth__footer">
+          <button class="auth__link" type="button" id="openRegister">
+            ¿No tenés cuenta? Registrate
+          </button>
+        </div>
+      </section>
+
+      <!-- Modal Register -->
+      <div class="modal hidden" id="registerModal" aria-hidden="true">
+        <div class="modal__backdrop" id="registerBackdrop"></div>
+
+        <div
+          class="modal__card"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="regTitle"
+        >
+          <div class="modal__header">
+            <h2 class="modal__title" id="regTitle">Crear cuenta</h2>
             <button
+              class="modal__close"
+              id="closeRegister"
               type="button"
-              class="toggle-pwd"
-              id="togglePwd"
-              aria-pressed="false"
-              aria-label="Mostrar contraseña"
-              title="Mostrar contraseña"
+              aria-label="Cerrar"
             >
-              <svg
-                class="icon-eye"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-              >
-                <path
-                  d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.5"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-                <circle
-                  cx="12"
-                  cy="12"
-                  r="3"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.5"
-                />
-              </svg>
-
-              <svg
-                class="icon-eye-off"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-                style="display: none"
-              >
-                <path
-                  d="M3 3l18 18"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.5"
-                  stroke-linecap="round"
-                />
-                <path
-                  d="M10.58 10.58A3 3 0 0012 15a3 3 0 002.42-4.42M9.88 5.08A10.6 10.6 0 0112 5c6 0 10 7 10 7a18.7 18.7 0 01-4.23 4.7M6.22 6.22A18.5 18.5 0 002 12s4 7 10 7a10.3 10.3 0 003.05-.47"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.5"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-              </svg>
+              ✕
             </button>
           </div>
 
-          <!-- Error -->
-          <p id="errorMsg" class="error-msg">
-            Clave incorrecta. Vuelva a intentarlo.
-          </p>
+          <form class="modal__form" id="registerForm">
+            <label class="modal__label" for="regNombre">Nombre</label>
+            <input class="modal__input" id="regNombre" type="text" required />
 
-          <button class="btn-acceder" id="btnAcceder" type="button">
-            Acceder
-          </button>
+            <label class="modal__label" for="regApellido">Apellido</label>
+            <input class="modal__input" id="regApellido" type="text" required />
+
+            <label class="modal__label" for="regEmail">Email</label>
+            <input
+              class="modal__input"
+              id="regEmail"
+              type="email"
+              autocomplete="email"
+              required
+            />
+
+            <label class="modal__label" for="regPass">Contraseña</label>
+            <input
+              class="modal__input"
+              id="regPass"
+              type="password"
+              autocomplete="new-password"
+              required
+            />
+
+            <label class="modal__label" for="regSupervisorEmail"
+              >Email del supervisor (opcional)</label
+            >
+            <input
+              class="modal__input"
+              id="regSupervisorEmail"
+              type="email"
+              placeholder="supervisor@empresa.com"
+            />
+
+            <button class="modal__btn" type="submit">Crear cuenta</button>
+            <p class="modal__error" id="regError" role="alert"></p>
+          </form>
         </div>
       </div>
     </main>
 
+    <!-- IMPORTANTE: rutas correctas en tu proyecto -->
     <script src="/js/pages/flight.js"></script>
-    <script src="/js/pages/script.js"></script>
+    <script src="/js/pages/index.js"></script>
   </body>
 </html>

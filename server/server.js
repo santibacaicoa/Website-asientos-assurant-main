@@ -1,4 +1,10 @@
-// server.js
+// server.js (v2) - Backend para sistema de pools (Supervisor -> habilita asientos, Empleado -> reserva 1)
+// ----------------------------------------------------------------------------------------------
+// Variables de entorno:
+// - DATABASE_URL: connection string de Neon
+// - DATABASE_SSL: "true" para forzar SSL (Render + Neon)
+// - SETUP_KEY: (opcional) key para endpoints /api/dev/*
+
 const path = require("path");
 require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
 
@@ -6,21 +12,67 @@ const express = require("express");
 const { Pool } = require("pg");
 const bcrypt = require("bcrypt");
 
-
 const app = express();
 app.use(express.json());
 
-// Static (importantísimo para /images/...)
+// Static para servir /public
 app.use(express.static(path.join(__dirname, "..", "public")));
-
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_SSL === "true"
-    ? { rejectUnauthorized: false }
-    : false,
+  ssl:
+    process.env.DATABASE_SSL === "true" ? { rejectUnauthorized: false } : false,
 });
 
+// --------------------
+// Helpers
+// --------------------
+function isISODate(yyyyMmDd) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(yyyyMmDd || ""));
+}
+
+async function getUserById(client, id) {
+  const q = await client.query(
+    `SELECT id, email, nombre, apellido, rol, supervisor_id, email_verificado
+     FROM usuarios
+     WHERE id = $1`,
+    [id]
+  );
+  return q.rows[0] || null;
+}
+
+async function assertRole(client, usuarioId, allowedRoles) {
+  const u = await getUserById(client, usuarioId);
+  if (!u) {
+    const err = new Error("Usuario no existe");
+    err.status = 404;
+    throw err;
+  }
+  if (!allowedRoles.includes(u.rol)) {
+    const err = new Error("No autorizado para esta acción");
+    err.status = 403;
+    throw err;
+  }
+  return u;
+}
+
+async function getPisoIdByNumero(client, pisoNumero) {
+  // En el schema nuevo: pisos.id es el número (7,8,11,12)
+  const q = await client.query(`SELECT id FROM pisos WHERE id = $1`, [pisoNumero]);
+  return q.rows[0]?.id ?? null;
+}
+
+function devGuard(req, res, next) {
+  const setupKey = process.env.SETUP_KEY;
+  if (!setupKey) {
+    return res.status(403).json({ ok: false, error: "SETUP_KEY no configurado" });
+  }
+  const key = String(req.query.key || req.headers["x-setup-key"] || "");
+  if (key !== setupKey) {
+    return res.status(403).json({ ok: false, error: "Key inválida" });
+  }
+  next();
+}
 
 // --------------------
 // HEALTH
@@ -35,542 +87,546 @@ app.get("/healthz", async (req, res) => {
 });
 
 // --------------------
-// SETUP (DEV) + reset opcional
+// AUTH (v2)
 // --------------------
-app.get("/api/setup-local", async (req, res) => {
-  const isProd = process.env.NODE_ENV === "production";
-  const setupKey = process.env.SETUP_KEY;
-  const key = String(req.query.key || "");
-  const reset = String(req.query.reset || "") === "1";
-
-  if (isProd) {
-    if (!setupKey || key !== setupKey) {
-      return res.status(403).json({
-        ok: false,
-        error: "Setup deshabilitado en producción (o key inválida).",
-      });
-    }
+// Registro (por ahora: permite crear EMPLEADO; el supervisor se asigna por supervisor_email)
+// body: { email, password, nombre, apellido, supervisor_email? }
+app.post("/api/auth/register", async (req, res) => {
+  const { email, password, nombre, apellido, supervisor_email } = req.body || {};
+  if (!email || !password || !nombre || !apellido) {
+    return res.status(400).json({ ok: false, error: "Faltan datos" });
   }
 
   const client = await pool.connect();
   try {
-    await client.query("BEGIN");
-
-    if (reset) {
-      await client.query(`DROP TABLE IF EXISTS reservas_asientos CASCADE;`);
-      await client.query(`DROP TABLE IF EXISTS reservas CASCADE;`);
-      await client.query(`DROP TABLE IF EXISTS pisos CASCADE;`);
-      await client.query(`DROP TABLE IF EXISTS usuarios CASCADE;`);
+    let supervisorId = null;
+    if (supervisor_email) {
+      const s = await client.query(
+        `SELECT id FROM usuarios WHERE email = $1 AND rol = 'SUPERVISOR'`,
+        [String(supervisor_email).trim().toLowerCase()]
+      );
+      supervisorId = s.rows[0]?.id || null;
+      if (!supervisorId) {
+        return res
+          .status(404)
+          .json({ ok: false, error: "Supervisor no encontrado" });
+      }
     }
 
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS usuarios (
-        id SERIAL PRIMARY KEY,
-        username TEXT UNIQUE NOT NULL,
-        nombre TEXT NOT NULL,
-        apellido TEXT NOT NULL,
-        rol TEXT NOT NULL CHECK (rol IN ('user','admin')),
-        password_hash TEXT,
-        creado_en TIMESTAMP DEFAULT now()
-      );
-    `);
+    const hash = await bcrypt.hash(String(password), 10);
 
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS pisos (
-        id SERIAL PRIMARY KEY,
-        numero INT UNIQUE NOT NULL
-      );
-    `);
+    const q = await client.query(
+      `INSERT INTO usuarios (email, password_hash, nombre, apellido, rol, supervisor_id)
+       VALUES ($1,$2,$3,$4,'EMPLEADO',$5)
+       RETURNING id, email, nombre, apellido, rol, supervisor_id, email_verificado`,
+      [String(email).trim().toLowerCase(), hash, String(nombre).trim(), String(apellido).trim(), supervisorId]
+    );
 
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS reservas (
-        id SERIAL PRIMARY KEY,
-        usuario_id INT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
-        nombre TEXT NOT NULL,
-        tipo TEXT NOT NULL CHECK (tipo IN ('individual','grupal')),
-        cantidad_asientos INT NOT NULL DEFAULT 1,
-        piso_id INT REFERENCES pisos(id),
-        fecha DATE,
-        estado TEXT NOT NULL DEFAULT 'borrador'
-          CHECK (estado IN ('borrador','confirmada')),
-        creada_en TIMESTAMP DEFAULT now()
-      );
-    `);
-
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS reservas_asientos (
-        id SERIAL PRIMARY KEY,
-        reserva_id INT NOT NULL REFERENCES reservas(id) ON DELETE CASCADE,
-        piso_id INT NOT NULL REFERENCES pisos(id) ON DELETE CASCADE,
-        fecha DATE NOT NULL,
-        asiento_id TEXT NOT NULL,
-        creada_en TIMESTAMP DEFAULT now(),
-        UNIQUE (piso_id, fecha, asiento_id)
-      );
-    `);
-
-    await client.query(`
-      INSERT INTO pisos (numero) VALUES (7),(8),(11),(12)
-      ON CONFLICT (numero) DO NOTHING;
-    `);
-
-    await client.query("COMMIT");
-
-    res.json({
-      ok: true,
-      message: reset ? "DB reseteada y lista (local)" : "DB lista (local)",
-    });
-  } catch (err) {
-    await client.query("ROLLBACK");
-    console.error(err);
-    res.status(500).json({ ok: false, error: err.message });
+    res.json({ ok: true, user: q.rows[0] });
+  } catch (e) {
+    if (e.code === "23505") {
+      return res.status(409).json({ ok: false, error: "Email ya existe" });
+    }
+    console.error(e);
+    res.status(500).json({ ok: false, error: "Error registrando usuario" });
   } finally {
     client.release();
   }
 });
 
-// --------------------
-// Helpers
-// --------------------
-async function getPisoId(numero) {
-  const r = await pool.query("SELECT id FROM pisos WHERE numero = $1", [numero]);
-  return r.rows[0]?.id || null;
-}
-
-// --------------------
-// AUTH
-// --------------------
-app.post("/api/auth/register-user", async (req, res) => {
-  const { username, nombre, apellido } = req.body || {};
-  if (!username || !nombre || !apellido) {
+// Login
+// body: { email, password }
+app.post("/api/auth/login", async (req, res) => {
+  const { email, password } = req.body || {};
+  if (!email || !password) {
     return res.status(400).json({ ok: false, error: "Faltan datos" });
   }
 
   try {
     const q = await pool.query(
-      `INSERT INTO usuarios (username, nombre, apellido, rol)
-       VALUES ($1,$2,$3,'user')
-       RETURNING id, username, nombre, apellido, rol`,
-      [username.trim(), nombre.trim(), apellido.trim()]
-    );
-    res.json({ ok: true, user: q.rows[0] });
-  } catch (e) {
-    if (e.code === "23505")
-      return res.status(409).json({ ok: false, error: "Username ya existe" });
-    console.error(e);
-    res.status(500).json({ ok: false, error: "Error registrando usuario" });
-  }
-});
-
-app.post("/api/auth/login-user", async (req, res) => {
-  const { username } = req.body || {};
-  if (!username)
-    return res.status(400).json({ ok: false, error: "Falta username" });
-
-  try {
-    const q = await pool.query(
-      `SELECT id, username, nombre, apellido, rol
+      `SELECT id, email, nombre, apellido, rol, supervisor_id, email_verificado, password_hash
        FROM usuarios
-       WHERE username=$1 AND rol='user'`,
-      [username.trim()]
+       WHERE email = $1`,
+      [String(email).trim().toLowerCase()]
     );
-    if (!q.rowCount)
+
+    if (!q.rowCount) {
       return res.status(404).json({ ok: false, error: "Usuario no encontrado" });
-    res.json({ ok: true, user: q.rows[0] });
+    }
+
+    const u = q.rows[0];
+    const ok = await bcrypt.compare(String(password), u.password_hash || "");
+    if (!ok) {
+      return res.status(401).json({ ok: false, error: "Password incorrecta" });
+    }
+
+    delete u.password_hash;
+    res.json({ ok: true, user: u });
   } catch (e) {
     console.error(e);
     res.status(500).json({ ok: false, error: "Error login" });
   }
 });
 
-app.post("/api/auth/find-users", async (req, res) => {
-  const { nombre, apellido } = req.body || {};
-  if (!nombre || !apellido)
-    return res.status(400).json({ ok: false, error: "Faltan datos" });
-
-  try {
-    const q = await pool.query(
-      `SELECT id, username, nombre, apellido, rol
-       FROM usuarios
-       WHERE lower(nombre)=lower($1) AND lower(apellido)=lower($2) AND rol='user'
-       ORDER BY id ASC`,
-      [nombre.trim(), apellido.trim()]
-    );
-    res.json({ ok: true, matches: q.rows });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ ok: false, error: "Error buscando usuarios" });
-  }
-});
-
-app.post("/api/auth/register-admin", async (req, res) => {
-  const { username, nombre, apellido, password } = req.body || {};
-  if (!username || !nombre || !apellido || !password) {
-    return res.status(400).json({ ok: false, error: "Faltan datos" });
-  }
-
-  try {
-    const hash = await bcrypt.hash(password, 10);
-    const q = await pool.query(
-      `INSERT INTO usuarios (username, nombre, apellido, rol, password_hash)
-       VALUES ($1,$2,$3,'admin',$4)
-       RETURNING id, username, nombre, apellido, rol`,
-      [username.trim(), nombre.trim(), apellido.trim(), hash]
-    );
-    res.json({ ok: true, user: q.rows[0] });
-  } catch (e) {
-    if (e.code === "23505")
-      return res.status(409).json({ ok: false, error: "Username ya existe" });
-    console.error(e);
-    res.status(500).json({ ok: false, error: "Error registrando admin" });
-  }
-});
-
-app.post("/api/auth/login-admin", async (req, res) => {
-  const { username, password } = req.body || {};
-  if (!username || !password)
-    return res.status(400).json({ ok: false, error: "Faltan datos" });
-
-  try {
-    const q = await pool.query(
-      `SELECT id, username, nombre, apellido, rol, password_hash
-       FROM usuarios WHERE username=$1 AND rol='admin'`,
-      [username.trim()]
-    );
-    if (!q.rowCount)
-      return res.status(404).json({ ok: false, error: "Admin no encontrado" });
-
-    const admin = q.rows[0];
-    const ok = await bcrypt.compare(password, admin.password_hash || "");
-    if (!ok)
-      return res.status(401).json({ ok: false, error: "Password incorrecta" });
-
-    delete admin.password_hash;
-    res.json({ ok: true, user: admin });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ ok: false, error: "Error login admin" });
-  }
-});
-
 // --------------------
-// RESERVAS
+// PISOS / ASIENTOS (base)
 // --------------------
-app.post("/api/pre-reservas", async (req, res) => {
-  const { usuario_id, tipo, cantidad_asientos } = req.body || {};
-  if (!usuario_id || !tipo)
-    return res.status(400).json({ ok: false, error: "Faltan datos" });
-
-  const cant = Number.isFinite(Number(cantidad_asientos))
-    ? Math.max(1, Number(cantidad_asientos))
-    : 1;
-
+app.get("/api/pisos", async (_req, res) => {
   try {
-    const u = await pool.query(
-      `SELECT id, nombre, apellido FROM usuarios WHERE id = $1`,
-      [Number(usuario_id)]
-    );
-    if (!u.rowCount)
-      return res.status(404).json({ ok: false, error: "Usuario no existe" });
-
-    const fullName = `${u.rows[0].nombre} ${u.rows[0].apellido}`.trim();
-
-    const result = await pool.query(
-      `INSERT INTO reservas (usuario_id, nombre, tipo, cantidad_asientos)
-       VALUES ($1,$2,$3,$4)
-       RETURNING *`,
-      [Number(usuario_id), fullName, tipo, cant]
-    );
-
-    res.json({ ok: true, reserva: result.rows[0] });
+    const q = await pool.query(`SELECT id, nombre FROM pisos ORDER BY id ASC`);
+    res.json({ ok: true, pisos: q.rows });
   } catch (e) {
     console.error(e);
-    res.status(500).json({ ok: false, error: "Error creando reserva" });
+    res.status(500).json({ ok: false, error: "Error listando pisos" });
   }
 });
 
-app.patch("/api/reservas/:id/piso", async (req, res) => {
-  const reservaId = Number(req.params.id);
-  const pisoNum = Number(req.body?.piso);
-
-  if (!reservaId || !pisoNum)
-    return res.status(400).json({ ok: false, error: "Faltan datos" });
-
-  try {
-    const pisoId = await getPisoId(pisoNum);
-    if (!pisoId)
-      return res.status(404).json({ ok: false, error: "Piso no existe" });
-
-    const q = await pool.query(
-      `UPDATE reservas SET piso_id=$1 WHERE id=$2 RETURNING *`,
-      [pisoId, reservaId]
-    );
-    if (!q.rowCount)
-      return res.status(404).json({ ok: false, error: "Reserva no encontrada" });
-
-    res.json({ ok: true, reserva: q.rows[0] });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ ok: false, error: "Error seteando piso" });
-  }
-});
-
-// --------------------
-// ASIENTOS
-// --------------------
-app.get("/api/asientos/ocupados", async (req, res) => {
+// Lista de asientos de un piso (para renderizar mapa)
+// GET /api/asientos?piso=8
+app.get("/api/asientos", async (req, res) => {
   const pisoNum = Number(req.query.piso);
-  const fecha = String(req.query.fecha || "").trim();
-  if (!pisoNum || !fecha)
-    return res.status(400).json({ ok: false, error: "Faltan piso/fecha" });
-
-  try {
-    const pisoId = await getPisoId(pisoNum);
-    if (!pisoId)
-      return res.status(404).json({ ok: false, error: "Piso no existe" });
-
-    const q = await pool.query(
-      `SELECT asiento_id FROM reservas_asientos
-       WHERE piso_id=$1 AND fecha=$2
-       ORDER BY asiento_id ASC`,
-      [pisoId, fecha]
-    );
-
-    res.json({ ok: true, ocupados: q.rows.map((r) => r.asiento_id) });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ ok: false, error: "Error consultando ocupados" });
-  }
-});
-
-// ✅ ocupados + nombre + usuario_id + reserva_id (tooltip + permisos)
-app.get("/api/asientos/ocupados-info", async (req, res) => {
-  const pisoNum = Number(req.query.piso);
-  const fecha = String(req.query.fecha || "").trim();
-  if (!pisoNum || !fecha)
-    return res.status(400).json({ ok: false, error: "Faltan piso/fecha" });
-
-  try {
-    const pisoId = await getPisoId(pisoNum);
-    if (!pisoId)
-      return res.status(404).json({ ok: false, error: "Piso no existe" });
-
-    const q = await pool.query(
-      `SELECT 
-         ra.asiento_id,
-         ra.reserva_id,
-         r.usuario_id,
-         r.nombre
-       FROM reservas_asientos ra
-       JOIN reservas r ON r.id = ra.reserva_id
-       WHERE ra.piso_id=$1 AND ra.fecha=$2
-       ORDER BY ra.asiento_id ASC`,
-      [pisoId, fecha]
-    );
-
-    res.json({ ok: true, ocupados: q.rows });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ ok: false, error: "Error consultando ocupados" });
-  }
-});
-
-// --------------------
-// Confirmar asientos seleccionados
-// POST /api/asientos/confirmar
-// body: { reserva_id, piso, fecha, asientos: [...] }
-// --------------------
-app.post("/api/asientos/confirmar", async (req, res) => {
-  const reservaId = Number(req.body?.reserva_id);
-  const pisoNum = Number(req.body?.piso);
-  const fecha = String(req.body?.fecha || "").trim();
-  const asientos = Array.isArray(req.body?.asientos) ? req.body.asientos : [];
-
-  if (!reservaId || !pisoNum || !fecha || asientos.length === 0) {
-    return res
-      .status(400)
-      .json({ ok: false, error: "Faltan datos (reserva_id, piso, fecha, asientos[])" });
-  }
+  if (!pisoNum) return res.status(400).json({ ok: false, error: "Falta piso" });
 
   const client = await pool.connect();
   try {
-    await client.query("BEGIN");
+    const pisoId = await getPisoIdByNumero(client, pisoNum);
+    if (!pisoId) return res.status(404).json({ ok: false, error: "Piso no existe" });
 
-    const rsv = await client.query(`SELECT id, tipo FROM reservas WHERE id=$1`, [
-      reservaId,
-    ]);
-    if (!rsv.rowCount) {
-      await client.query("ROLLBACK");
-      return res.status(404).json({ ok: false, error: "Reserva no encontrada" });
-    }
-
-    const pisoId = await (async () => {
-      const p = await client.query(`SELECT id FROM pisos WHERE numero=$1`, [
-        pisoNum,
-      ]);
-      return p.rows[0]?.id || null;
-    })();
-
-    if (!pisoId) {
-      await client.query("ROLLBACK");
-      return res.status(404).json({ ok: false, error: "Piso no existe" });
-    }
-
-    const tipo = rsv.rows[0].tipo;
-    if (tipo === "individual" && asientos.length > 1) {
-      await client.query("ROLLBACK");
-      return res.status(400).json({ ok: false, error: "Reserva individual: solo 1 asiento" });
-    }
-
-    for (const seatIdRaw of asientos) {
-      const seatId = String(seatIdRaw).trim();
-      await client.query(
-        `INSERT INTO reservas_asientos (reserva_id, piso_id, fecha, asiento_id)
-         VALUES ($1,$2,$3,$4)`,
-        [reservaId, pisoId, fecha, seatId]
-      );
-    }
-
-    await client.query(
-      `UPDATE reservas
-       SET piso_id=$1, fecha=$2, estado='confirmada'
-       WHERE id=$3`,
-      [pisoId, fecha, reservaId]
+    const q = await client.query(
+      `SELECT id, codigo, x, y, radio, activo
+       FROM asientos
+       WHERE piso_id = $1 AND activo = TRUE
+       ORDER BY codigo ASC`,
+      [pisoId]
     );
-
-    await client.query("COMMIT");
-    res.json({ ok: true });
+    res.json({ ok: true, asientos: q.rows });
   } catch (e) {
-    await client.query("ROLLBACK");
-
-    if (e.code === "23505") {
-      return res.status(409).json({
-        ok: false,
-        error: "Uno de los asientos ya está ocupado. Actualizá la vista.",
-      });
-    }
-
     console.error(e);
-    res.status(500).json({ ok: false, error: "Error confirmando asientos" });
+    res.status(500).json({ ok: false, error: "Error listando asientos" });
   } finally {
     client.release();
   }
 });
 
 // --------------------
-// CANCELAR ASIENTOS
-// POST /api/asientos/cancelar
-// body: { piso, fecha, asientos: [...], usuario_id }
-// Reglas:
-// - user: solo puede cancelar asientos donde r.usuario_id = usuario_id
-// - admin: puede cancelar cualquiera
+// SUPERVISOR: crear pool + habilitar asientos
 // --------------------
-app.post("/api/asientos/cancelar", async (req, res) => {
-  const pisoNum = Number(req.body?.piso);
-  const fecha = String(req.body?.fecha || "").trim();
-  const asientos = Array.isArray(req.body?.asientos) ? req.body.asientos : [];
-  const usuarioId = Number(req.body?.usuario_id);
+// POST /api/supervisor/pools
+// body: { supervisor_id, piso, fecha, asiento_ids: [uuid, uuid, ...] }
+app.post("/api/supervisor/pools", async (req, res) => {
+  const { supervisor_id, piso, fecha, asiento_ids } = req.body || {};
+  const supervisorId = String(supervisor_id || "").trim();
+  const pisoNum = Number(piso);
 
-  if (!pisoNum || !fecha || asientos.length === 0 || !usuarioId) {
-    return res.status(400).json({
-      ok: false,
-      error: "Faltan datos (piso, fecha, asientos[], usuario_id)",
-    });
+  if (!supervisorId || !pisoNum || !isISODate(fecha) || !Array.isArray(asiento_ids)) {
+    return res.status(400).json({ ok: false, error: "Faltan datos" });
   }
 
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
 
-    const u = await client.query(`SELECT id, rol FROM usuarios WHERE id=$1`, [
-      usuarioId,
-    ]);
-    if (!u.rowCount) {
-      await client.query("ROLLBACK");
-      return res.status(404).json({ ok: false, error: "Usuario no existe" });
-    }
-    const isAdmin = u.rows[0].rol === "admin";
+    await assertRole(client, supervisorId, ["SUPERVISOR", "ADMIN"]);
 
-    const pisoId = await (async () => {
-      const p = await client.query(`SELECT id FROM pisos WHERE numero=$1`, [
-        pisoNum,
-      ]);
-      return p.rows[0]?.id || null;
-    })();
-
+    const pisoId = await getPisoIdByNumero(client, pisoNum);
     if (!pisoId) {
       await client.query("ROLLBACK");
       return res.status(404).json({ ok: false, error: "Piso no existe" });
     }
 
-    const seats = asientos.map((s) => String(s).trim()).filter(Boolean);
-
-    const info = await client.query(
-      `SELECT ra.asiento_id, ra.reserva_id, r.usuario_id
-       FROM reservas_asientos ra
-       JOIN reservas r ON r.id = ra.reserva_id
-       WHERE ra.piso_id=$1 AND ra.fecha=$2 AND ra.asiento_id = ANY($3::text[])`,
-      [pisoId, fecha, seats]
+    // Upsert del pool (1 por supervisor/piso/fecha)
+    const poolQ = await client.query(
+      `INSERT INTO pools_supervisor (supervisor_id, piso_id, fecha)
+       VALUES ($1,$2,$3)
+       ON CONFLICT (supervisor_id, piso_id, fecha)
+       DO UPDATE SET supervisor_id = EXCLUDED.supervisor_id
+       RETURNING id, supervisor_id, piso_id, fecha`,
+      [supervisorId, pisoId, fecha]
     );
+    const poolRow = poolQ.rows[0];
 
-    const rows = info.rows || [];
-    const allowed = [];
-    const denied = [];
+    // Reemplazamos la lista de asientos habilitados del pool (modo “fuente de verdad”)
+    await client.query(`DELETE FROM pool_asientos WHERE pool_id = $1`, [poolRow.id]);
 
-    for (const row of rows) {
-      if (isAdmin || Number(row.usuario_id) === usuarioId) allowed.push(row.asiento_id);
-      else denied.push(row.asiento_id);
-    }
-
-    const foundSet = new Set(rows.map((r) => r.asiento_id));
-    for (const s of seats) {
-      if (!foundSet.has(s)) denied.push(s);
-    }
-
-    if (allowed.length === 0) {
-      await client.query("ROLLBACK");
-      return res.json({
-        ok: true,
-        deleted: [],
-        denied,
-        message: "No había asientos cancelables para tu usuario.",
-      });
-    }
-
-    const del = await client.query(
-      `DELETE FROM reservas_asientos ra
-       USING reservas r
-       WHERE ra.reserva_id = r.id
-         AND ra.piso_id=$1
-         AND ra.fecha=$2
-         AND ra.asiento_id = ANY($3::text[])
-         AND (${isAdmin ? "TRUE" : "r.usuario_id = $4"})
-       RETURNING ra.asiento_id, ra.reserva_id`,
-      isAdmin ? [pisoId, fecha, allowed] : [pisoId, fecha, allowed, usuarioId]
-    );
-
-    const deleted = del.rows.map((r) => r.asiento_id);
-    const affectedReservaIds = Array.from(new Set(del.rows.map((r) => r.reserva_id)));
-
-    for (const rid of affectedReservaIds) {
-      const c = await client.query(
-        `SELECT COUNT(*)::int AS n FROM reservas_asientos WHERE reserva_id=$1`,
-        [rid]
+    const clean = asiento_ids.map((x) => String(x).trim()).filter(Boolean);
+    for (const asientoId of clean) {
+      await client.query(
+        `INSERT INTO pool_asientos (pool_id, asiento_id) VALUES ($1,$2)`,
+        [poolRow.id, asientoId]
       );
-      if ((c.rows[0]?.n || 0) === 0) {
-        await client.query(
-          `UPDATE reservas SET estado='borrador' WHERE id=$1`,
-          [rid]
-        );
-      }
     }
 
     await client.query("COMMIT");
-    res.json({ ok: true, deleted, denied });
+    res.json({ ok: true, pool: poolRow, habilitados: clean.length });
+  } catch (e) {
+    await client.query("ROLLBACK");
+    const status = e.status || 500;
+    console.error(e);
+    res.status(status).json({ ok: false, error: e.message || "Error creando pool" });
+  } finally {
+    client.release();
+  }
+});
+
+// GET /api/supervisor/pools?supervisor_id=...&piso=8&fecha=YYYY-MM-DD
+app.get("/api/supervisor/pools", async (req, res) => {
+  const supervisorId = String(req.query.supervisor_id || "").trim();
+  const pisoNum = Number(req.query.piso);
+  const fecha = String(req.query.fecha || "").trim();
+
+  if (!supervisorId || !pisoNum || !isISODate(fecha)) {
+    return res.status(400).json({ ok: false, error: "Faltan datos" });
+  }
+
+  const client = await pool.connect();
+  try {
+    await assertRole(client, supervisorId, ["SUPERVISOR", "ADMIN"]);
+
+    const pisoId = await getPisoIdByNumero(client, pisoNum);
+    if (!pisoId) return res.status(404).json({ ok: false, error: "Piso no existe" });
+
+    const p = await client.query(
+      `SELECT id, supervisor_id, piso_id, fecha
+       FROM pools_supervisor
+       WHERE supervisor_id=$1 AND piso_id=$2 AND fecha=$3`,
+      [supervisorId, pisoId, fecha]
+    );
+    if (!p.rowCount) return res.json({ ok: true, pool: null });
+
+    const poolId = p.rows[0].id;
+
+    const seats = await client.query(
+      `SELECT a.id, a.codigo, a.x, a.y, a.radio
+       FROM pool_asientos pa
+       JOIN asientos a ON a.id = pa.asiento_id
+       WHERE pa.pool_id = $1
+       ORDER BY a.codigo ASC`,
+      [poolId]
+    );
+
+    res.json({ ok: true, pool: p.rows[0], asientos: seats.rows });
+  } catch (e) {
+    const status = e.status || 500;
+    console.error(e);
+    res.status(status).json({ ok: false, error: e.message || "Error consultando pool" });
+  } finally {
+    client.release();
+  }
+});
+
+// --------------------
+// EMPLEADO: ver pool de su supervisor + asientos disponibles + reservar
+// --------------------
+// GET /api/empleado/pool?empleado_id=...&piso=8&fecha=YYYY-MM-DD
+app.get("/api/empleado/pool", async (req, res) => {
+  const empleadoId = String(req.query.empleado_id || "").trim();
+  const pisoNum = Number(req.query.piso);
+  const fecha = String(req.query.fecha || "").trim();
+
+  if (!empleadoId || !pisoNum || !isISODate(fecha)) {
+    return res.status(400).json({ ok: false, error: "Faltan datos" });
+  }
+
+  const client = await pool.connect();
+  try {
+    const emp = await assertRole(client, empleadoId, ["EMPLEADO"]);
+
+    if (!emp.supervisor_id) {
+      return res.status(400).json({ ok: false, error: "Empleado sin supervisor asignado" });
+    }
+
+    const pisoId = await getPisoIdByNumero(client, pisoNum);
+    if (!pisoId) return res.status(404).json({ ok: false, error: "Piso no existe" });
+
+    const p = await client.query(
+      `SELECT id, supervisor_id, piso_id, fecha
+       FROM pools_supervisor
+       WHERE supervisor_id=$1 AND piso_id=$2 AND fecha=$3`,
+      [emp.supervisor_id, pisoId, fecha]
+    );
+
+    res.json({ ok: true, pool: p.rows[0] || null });
+  } catch (e) {
+    const status = e.status || 500;
+    console.error(e);
+    res.status(status).json({ ok: false, error: e.message || "Error buscando pool" });
+  } finally {
+    client.release();
+  }
+});
+
+// GET /api/empleado/asientos-disponibles?empleado_id=...&piso=8&fecha=YYYY-MM-DD
+app.get("/api/empleado/asientos-disponibles", async (req, res) => {
+  const empleadoId = String(req.query.empleado_id || "").trim();
+  const pisoNum = Number(req.query.piso);
+  const fecha = String(req.query.fecha || "").trim();
+
+  if (!empleadoId || !pisoNum || !isISODate(fecha)) {
+    return res.status(400).json({ ok: false, error: "Faltan datos" });
+  }
+
+  const client = await pool.connect();
+  try {
+    const emp = await assertRole(client, empleadoId, ["EMPLEADO"]);
+    if (!emp.supervisor_id) {
+      return res.status(400).json({ ok: false, error: "Empleado sin supervisor asignado" });
+    }
+
+    const pisoId = await getPisoIdByNumero(client, pisoNum);
+    if (!pisoId) return res.status(404).json({ ok: false, error: "Piso no existe" });
+
+    const p = await client.query(
+      `SELECT id
+       FROM pools_supervisor
+       WHERE supervisor_id=$1 AND piso_id=$2 AND fecha=$3`,
+      [emp.supervisor_id, pisoId, fecha]
+    );
+    if (!p.rowCount) {
+      return res.json({ ok: true, pool_id: null, disponibles: [], ocupados: [] });
+    }
+
+    const poolId = p.rows[0].id;
+
+    // Ocupados = reservas_empleado dentro del pool
+    const occ = await client.query(
+      `SELECT re.asiento_id, u.nombre, u.apellido
+       FROM reservas_empleado re
+       JOIN usuarios u ON u.id = re.empleado_id
+       WHERE re.pool_id = $1`,
+      [poolId]
+    );
+
+    const occSet = new Set(occ.rows.map((r) => r.asiento_id));
+    const occInfo = occ.rows.map((r) => ({
+      asiento_id: r.asiento_id,
+      nombre: `${r.nombre} ${r.apellido}`.trim(),
+    }));
+
+    // Disponibles = asientos del pool - ocupados
+    const seats = await client.query(
+      `SELECT a.id, a.codigo, a.x, a.y, a.radio
+       FROM pool_asientos pa
+       JOIN asientos a ON a.id = pa.asiento_id
+       WHERE pa.pool_id = $1
+       ORDER BY a.codigo ASC`,
+      [poolId]
+    );
+
+    const disponibles = seats.rows.filter((s) => !occSet.has(s.id));
+
+    res.json({ ok: true, pool_id: poolId, disponibles, ocupados: occInfo });
+  } catch (e) {
+    const status = e.status || 500;
+    console.error(e);
+    res.status(status).json({ ok: false, error: e.message || "Error listando disponibles" });
+  } finally {
+    client.release();
+  }
+});
+
+// POST /api/empleado/reservar
+// body: { empleado_id, pool_id, asiento_id }
+app.post("/api/empleado/reservar", async (req, res) => {
+  const { empleado_id, pool_id, asiento_id } = req.body || {};
+  const empleadoId = String(empleado_id || "").trim();
+  const poolId = String(pool_id || "").trim();
+  const asientoId = String(asiento_id || "").trim();
+
+  if (!empleadoId || !poolId || !asientoId) {
+    return res.status(400).json({ ok: false, error: "Faltan datos" });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const emp = await assertRole(client, empleadoId, ["EMPLEADO"]);
+    if (!emp.supervisor_id) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ ok: false, error: "Empleado sin supervisor asignado" });
+    }
+
+    // Validar que el pool pertenezca al supervisor del empleado
+    const p = await client.query(
+      `SELECT id, supervisor_id
+       FROM pools_supervisor
+       WHERE id=$1`,
+      [poolId]
+    );
+    if (!p.rowCount) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ ok: false, error: "Pool no existe" });
+    }
+    if (String(p.rows[0].supervisor_id) !== String(emp.supervisor_id)) {
+      await client.query("ROLLBACK");
+      return res.status(403).json({ ok: false, error: "Pool no pertenece a tu supervisor" });
+    }
+
+    // Validar que el asiento esté dentro del pool
+    const inside = await client.query(
+      `SELECT 1 FROM pool_asientos WHERE pool_id=$1 AND asiento_id=$2`,
+      [poolId, asientoId]
+    );
+    if (!inside.rowCount) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ ok: false, error: "Asiento no habilitado en este pool" });
+    }
+
+    // Insert reserva (constraints en DB se encargan de duplicados)
+    const ins = await client.query(
+      `INSERT INTO reservas_empleado (pool_id, asiento_id, empleado_id)
+       VALUES ($1,$2,$3)
+       RETURNING id, pool_id, asiento_id, empleado_id, creado_en`,
+      [poolId, asientoId, empleadoId]
+    );
+
+    await client.query("COMMIT");
+    res.json({ ok: true, reserva: ins.rows[0] });
+  } catch (e) {
+    await client.query("ROLLBACK");
+    // unique violations:
+    // uq_reserva_pool_asiento -> asiento ya reservado
+    // uq_reserva_empleado_pool -> empleado ya reservó en ese pool
+    if (e.code === "23505") {
+      return res.status(409).json({
+        ok: false,
+        error: "Conflicto: asiento ya reservado o ya tenés una reserva en este pool",
+      });
+    }
+    console.error(e);
+    res.status(500).json({ ok: false, error: "Error reservando" });
+  } finally {
+    client.release();
+  }
+});
+
+// --------------------
+// ADMIN: borrar reserva
+// --------------------
+// DELETE /api/admin/reservas/:id?admin_id=...
+app.delete("/api/admin/reservas/:id", async (req, res) => {
+  const adminId = String(req.query.admin_id || "").trim();
+  const reservaId = String(req.params.id || "").trim();
+
+  if (!adminId || !reservaId) {
+    return res.status(400).json({ ok: false, error: "Faltan datos" });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await assertRole(client, adminId, ["ADMIN"]);
+
+    const del = await client.query(
+      `DELETE FROM reservas_empleado WHERE id=$1 RETURNING id`,
+      [reservaId]
+    );
+    await client.query("COMMIT");
+
+    if (!del.rowCount) return res.status(404).json({ ok: false, error: "Reserva no encontrada" });
+    res.json({ ok: true, deleted: del.rows[0] });
+  } catch (e) {
+    await client.query("ROLLBACK");
+    const status = e.status || 500;
+    console.error(e);
+    res.status(status).json({ ok: false, error: e.message || "Error borrando reserva" });
+  } finally {
+    client.release();
+  }
+});
+
+// --------------------
+// DEV: crear usuario SUPERVISOR/ADMIN rápido (protegido por SETUP_KEY)
+// --------------------
+// POST /api/dev/create-user?key=...
+// body: { email, password, nombre, apellido, rol: 'SUPERVISOR'|'ADMIN'|'EMPLEADO', supervisor_email? }
+app.post("/api/dev/create-user", devGuard, async (req, res) => {
+  const { email, password, nombre, apellido, rol, supervisor_email } = req.body || {};
+  const role = String(rol || "").trim().toUpperCase();
+
+  if (!email || !password || !nombre || !apellido || !["EMPLEADO", "SUPERVISOR", "ADMIN"].includes(role)) {
+    return res.status(400).json({ ok: false, error: "Faltan datos" });
+  }
+
+  const client = await pool.connect();
+  try {
+    let supervisorId = null;
+    if (role === "EMPLEADO" && supervisor_email) {
+      const s = await client.query(
+        `SELECT id FROM usuarios WHERE email=$1 AND rol='SUPERVISOR'`,
+        [String(supervisor_email).trim().toLowerCase()]
+      );
+      supervisorId = s.rows[0]?.id || null;
+      if (!supervisorId) return res.status(404).json({ ok: false, error: "Supervisor no encontrado" });
+    }
+
+    const hash = await bcrypt.hash(String(password), 10);
+    const q = await client.query(
+      `INSERT INTO usuarios (email, password_hash, nombre, apellido, rol, supervisor_id, email_verificado)
+       VALUES ($1,$2,$3,$4,$5,$6,TRUE)
+       RETURNING id, email, nombre, apellido, rol, supervisor_id, email_verificado`,
+      [String(email).trim().toLowerCase(), hash, String(nombre).trim(), String(apellido).trim(), role, supervisorId]
+    );
+    res.json({ ok: true, user: q.rows[0] });
+  } catch (e) {
+    if (e.code === "23505") return res.status(409).json({ ok: false, error: "Email ya existe" });
+    console.error(e);
+    res.status(500).json({ ok: false, error: "Error creando usuario" });
+  } finally {
+    client.release();
+  }
+});
+
+// --------------------
+// DEV: seed asientos (cargar coordenadas) - protegido por SETUP_KEY
+// --------------------
+// POST /api/dev/seed-asientos?key=...
+// body: { piso: 8, seats: [{codigo,x,y,radio?}, ...] }
+app.post("/api/dev/seed-asientos", devGuard, async (req, res) => {
+  const { piso, seats } = req.body || {};
+  const pisoNum = Number(piso);
+  if (!pisoNum || !Array.isArray(seats) || seats.length === 0) {
+    return res.status(400).json({ ok: false, error: "Faltan datos" });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const pisoId = await getPisoIdByNumero(client, pisoNum);
+    if (!pisoId) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ ok: false, error: "Piso no existe" });
+    }
+
+    let inserted = 0;
+    for (const s of seats) {
+      const codigo = String(s.codigo || "").trim();
+      const x = Number(s.x);
+      const y = Number(s.y);
+      const radio = s.radio == null ? null : Number(s.radio);
+
+      if (!codigo || !Number.isFinite(x) || !Number.isFinite(y)) continue;
+
+      // Normalizamos: front viejo usa % (0..100). En DB queremos 0..1.
+      const nx = x > 1 ? x / 100 : x;
+      const ny = y > 1 ? y / 100 : y;
+
+      await client.query(
+        `INSERT INTO asientos (piso_id, codigo, x, y, radio)
+         VALUES ($1,$2,$3,$4,$5)
+         ON CONFLICT (piso_id, codigo)
+         DO UPDATE SET x=EXCLUDED.x, y=EXCLUDED.y, radio=EXCLUDED.radio, activo=TRUE`,
+        [pisoId, codigo, nx, ny, radio]
+      );
+      inserted++;
+    }
+
+    await client.query("COMMIT");
+    res.json({ ok: true, piso: pisoNum, upserts: inserted });
   } catch (e) {
     await client.query("ROLLBACK");
     console.error(e);
-    res.status(500).json({ ok: false, error: "Error cancelando asientos" });
+    res.status(500).json({ ok: false, error: "Error seedeando asientos" });
   } finally {
     client.release();
   }
@@ -580,6 +636,6 @@ app.post("/api/asientos/cancelar", async (req, res) => {
 // START
 // --------------------
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () =>
-  console.log(`Servidor activo en http://localhost:${PORT}`)
-);
+app.listen(PORT, () => {
+  console.log(`Servidor v2 activo en http://localhost:${PORT}`);
+});
