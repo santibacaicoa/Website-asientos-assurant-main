@@ -1,10 +1,22 @@
 // server.js (v2) - Backend para sistema de pools (Supervisor -> habilita asientos, Empleado -> reserva 1)
+// + Auth con verificación email + reset password
 // ----------------------------------------------------------------------------------------------
 // Variables de entorno:
 // - DATABASE_URL: connection string de Neon
 // - DATABASE_SSL: "true" para forzar SSL (Render + Neon)
-// - SETUP_KEY: (opcional) key para endpoints /api/dev/*
- // email sender
+// - SETUP_KEY: key para endpoints /api/dev/*
+// - SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS: SMTP
+// - MAIL_FROM: ejemplo "Assurant <no-reply@assurant.com>"
+// - APP_BASE_URL: ejemplo "http://localhost:3000" o tu URL de Render
+
+const path = require("path");
+require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
+
+const express = require("express");
+const { Pool } = require("pg");
+const bcrypt = require("bcrypt");
+
+// Email / tokens
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
 
@@ -28,7 +40,7 @@ const transporter =
     : null;
 
 async function sendMail({ to, subject, html }) {
-  // Si no hay SMTP configurado, no rompemos: logueamos el mail.
+  // Si no hay SMTP configurado, no rompemos: logueamos el mail (modo dev).
   if (!transporter) {
     console.log("📧 [DEV MAIL] to:", to, "subject:", subject);
     console.log(html);
@@ -45,18 +57,9 @@ async function sendMail({ to, subject, html }) {
 function randomToken() {
   return crypto.randomBytes(32).toString("hex");
 }
-
 function sha256(x) {
   return crypto.createHash("sha256").update(x).digest("hex");
 }
-
-
-const path = require("path");
-require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
-
-const express = require("express");
-const { Pool } = require("pg");
-const bcrypt = require("bcrypt");
 
 const app = express();
 app.use(express.json());
@@ -75,6 +78,10 @@ const pool = new Pool({
 // --------------------
 function isISODate(yyyyMmDd) {
   return /^\d{4}-\d{2}-\d{2}$/.test(String(yyyyMmDd || ""));
+}
+
+function baseUrl() {
+  return APP_BASE_URL || "http://localhost:3000";
 }
 
 async function getUserById(client, id) {
@@ -123,7 +130,7 @@ function devGuard(req, res, next) {
 // --------------------
 // HEALTH
 // --------------------
-app.get("/healthz", async (req, res) => {
+app.get("/healthz", async (_req, res) => {
   try {
     await pool.query("SELECT 1");
     res.json({ ok: true });
@@ -133,9 +140,10 @@ app.get("/healthz", async (req, res) => {
 });
 
 // --------------------
-// AUTH (v2)
+// AUTH (v2) - Registro + Login + Verificación + Reset Password
 // --------------------
-// Registro (por ahora: permite crear EMPLEADO; el supervisor se asigna por supervisor_email)
+
+// Registro (crea EMPLEADO, opcional supervisor_email)
 // body: { email, password, nombre, apellido, supervisor_email? }
 app.post("/api/auth/register", async (req, res) => {
   const { email, password, nombre, apellido, supervisor_email } = req.body || {};
@@ -145,6 +153,9 @@ app.post("/api/auth/register", async (req, res) => {
 
   const client = await pool.connect();
   try {
+    await client.query("BEGIN");
+
+    // Si viene supervisor_email, validar que exista y sea SUPERVISOR
     let supervisorId = null;
     if (supervisor_email) {
       const s = await client.query(
@@ -153,23 +164,62 @@ app.post("/api/auth/register", async (req, res) => {
       );
       supervisorId = s.rows[0]?.id || null;
       if (!supervisorId) {
-        return res
-          .status(404)
-          .json({ ok: false, error: "Supervisor no encontrado" });
+        await client.query("ROLLBACK");
+        return res.status(404).json({ ok: false, error: "Supervisor no encontrado" });
       }
     }
 
+    const normalizedEmail = String(email).trim().toLowerCase();
     const hash = await bcrypt.hash(String(password), 10);
 
     const q = await client.query(
-      `INSERT INTO usuarios (email, password_hash, nombre, apellido, rol, supervisor_id)
-       VALUES ($1,$2,$3,$4,'EMPLEADO',$5)
+      `INSERT INTO usuarios (email, password_hash, nombre, apellido, rol, supervisor_id, email_verificado)
+       VALUES ($1,$2,$3,$4,'EMPLEADO',$5,FALSE)
        RETURNING id, email, nombre, apellido, rol, supervisor_id, email_verificado`,
-      [String(email).trim().toLowerCase(), hash, String(nombre).trim(), String(apellido).trim(), supervisorId]
+      [
+        normalizedEmail,
+        hash,
+        String(nombre).trim(),
+        String(apellido).trim(),
+        supervisorId,
+      ]
     );
 
-    res.json({ ok: true, user: q.rows[0] });
+    const user = q.rows[0];
+
+    // Crear token verificación email
+    const token = randomToken();
+    const tokenHash = sha256(token);
+    const expira = new Date(Date.now() + 1000 * 60 * 60 * 24); // 24h
+
+    await client.query(
+      `INSERT INTO tokens_verificacion_email (usuario_id, token_hash, expira_en)
+       VALUES ($1,$2,$3)`,
+      [user.id, tokenHash, expira]
+    );
+
+    await client.query("COMMIT");
+
+    // Enviar mail verificación (afuera del TX)
+    const link = `${baseUrl()}/api/auth/verify-email?token=${token}`;
+    await sendMail({
+      to: user.email,
+      subject: "Verificá tu email",
+      html: `
+        <p>Hola ${user.nombre},</p>
+        <p>Para verificar tu email, hacé click acá:</p>
+        <p><a href="${link}">Verificar email</a></p>
+        <p>Este link vence en 24 horas.</p>
+      `,
+    });
+
+    // Importante: no auto-login, pediste verificación primero
+    res.json({
+      ok: true,
+      message: "Cuenta creada. Te enviamos un email para verificar tu cuenta antes de ingresar.",
+    });
   } catch (e) {
+    await client.query("ROLLBACK").catch(() => {});
     if (e.code === "23505") {
       return res.status(409).json({ ok: false, error: "Email ya existe" });
     }
@@ -180,129 +230,56 @@ app.post("/api/auth/register", async (req, res) => {
   }
 });
 
-// --------------------
-// AUTH (EMAIL + PASSWORD) - NUEVO
-// --------------------
-app.post("/api/auth/login", async (req, res) => {
-  const { email, password } = req.body || {};
-  if (!email || !password) {
-    return res.status(400).json({ ok: false, error: "Faltan datos" });
-  }
+// Verificar email
+// GET /api/auth/verify-email?token=...
+app.get("/api/auth/verify-email", async (req, res) => {
+  const token = String(req.query.token || "");
+  if (!token) return res.status(400).send("Token inválido");
 
+  const client = await pool.connect();
   try {
-    const q = await pool.query(
-      `SELECT id, username, nombre, apellido, rol, password_hash
-       FROM usuarios
-       WHERE username=$1`,
-      [String(email).trim().toLowerCase()]
+    const tokenHash = sha256(token);
+
+    const q = await client.query(
+      `SELECT id, usuario_id, expira_en, usado_en
+       FROM tokens_verificacion_email
+       WHERE token_hash=$1
+       ORDER BY creado_en DESC
+       LIMIT 1`,
+      [tokenHash]
     );
 
-    if (!q.rowCount) {
-      return res.status(404).json({ ok: false, error: "Usuario no encontrado" });
-    }
+    if (!q.rowCount) return res.status(400).send("Token inválido");
 
-    const user = q.rows[0];
+    const row = q.rows[0];
+    if (row.usado_en) return res.status(400).send("Token ya utilizado");
+    if (new Date(row.expira_en).getTime() < Date.now())
+      return res.status(400).send("Token expirado");
 
-    // Si no tiene hash, no puede loguearse con password
-    if (!user.password_hash) {
-      return res.status(401).json({
-        ok: false,
-        error: "Usuario sin contraseña. Registralo o asignale password.",
-      });
-    }
+    await client.query("BEGIN");
 
-    const ok = await bcrypt.compare(String(password), user.password_hash);
-    if (!ok) {
-      return res.status(401).json({ ok: false, error: "Contraseña incorrecta" });
-    }
-
-    delete user.password_hash;
-    res.json({
-      ok: true,
-      user: {
-        id: user.id,
-        email: user.username,
-        nombre: user.nombre,
-        apellido: user.apellido,
-        rol: user.rol,
-      },
-    });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ ok: false, error: "Error login" });
-  }
-});
-
-app.post("/api/auth/register", async (req, res) => {
-  const { email, password, nombre, apellido } = req.body || {};
-  if (!email || !password || !nombre || !apellido) {
-    return res.status(400).json({ ok: false, error: "Faltan datos" });
-  }
-
-  try {
-    const hash = await bcrypt.hash(String(password), 10);
-
-    const q = await pool.query(
-      `INSERT INTO usuarios (username, nombre, apellido, rol, password_hash)
-       VALUES ($1,$2,$3,'user',$4)
-       RETURNING id, username, nombre, apellido, rol`,
-      [String(email).trim().toLowerCase(), nombre.trim(), apellido.trim(), hash]
+    await client.query(
+      `UPDATE usuarios SET email_verificado = TRUE WHERE id = $1`,
+      [row.usuario_id]
     );
 
-    res.json({
-      ok: true,
-      user: {
-        id: q.rows[0].id,
-        email: q.rows[0].username,
-        nombre: q.rows[0].nombre,
-        apellido: q.rows[0].apellido,
-        rol: q.rows[0].rol,
-      },
-    });
-  } catch (e) {
-    if (e.code === "23505")
-      return res.status(409).json({ ok: false, error: "Email ya existe" });
-    console.error(e);
-    res.status(500).json({ ok: false, error: "Error registrando" });
-  }
-});
-
-app.post("/api/auth/register", async (req, res) => {
-  const { email, password, nombre, apellido } = req.body || {};
-  if (!email || !password || !nombre || !apellido) {
-    return res.status(400).json({ ok: false, error: "Faltan datos" });
-  }
-
-  try {
-    const normalizedEmail = String(email).trim().toLowerCase();
-    const hash = await bcrypt.hash(String(password), 10);
-
-    const q = await pool.query(
-      `INSERT INTO usuarios (username, nombre, apellido, rol, password_hash)
-       VALUES ($1,$2,$3,'user',$4)
-       RETURNING id, username, nombre, apellido, rol`,
-      [normalizedEmail, String(nombre).trim(), String(apellido).trim(), hash]
+    await client.query(
+      `UPDATE tokens_verificacion_email SET usado_en = now() WHERE id = $1`,
+      [row.id]
     );
 
-    res.json({
-      ok: true,
-      user: {
-        id: q.rows[0].id,
-        email: q.rows[0].username,
-        nombre: q.rows[0].nombre,
-        apellido: q.rows[0].apellido,
-        rol: q.rows[0].rol,
-      },
-    });
+    await client.query("COMMIT");
+
+    // vuelve al login con flag
+    return res.redirect("/index.html?verified=1");
   } catch (e) {
-    if (e.code === "23505") {
-      return res.status(409).json({ ok: false, error: "Ese email ya existe" });
-    }
+    await client.query("ROLLBACK").catch(() => {});
     console.error(e);
-    res.status(500).json({ ok: false, error: "Error registrando" });
+    res.status(500).send("Error verificando");
+  } finally {
+    client.release();
   }
 });
-
 
 // Login
 // body: { email, password }
@@ -325,9 +302,18 @@ app.post("/api/auth/login", async (req, res) => {
     }
 
     const u = q.rows[0];
+
+    // bloquear si no verificó email
+    if (!u.email_verificado) {
+      return res.status(403).json({
+        ok: false,
+        error: "Tenés que verificar tu email antes de ingresar.",
+      });
+    }
+
     const ok = await bcrypt.compare(String(password), u.password_hash || "");
     if (!ok) {
-      return res.status(401).json({ ok: false, error: "Password incorrecta" });
+      return res.status(401).json({ ok: false, error: "Contraseña incorrecta" });
     }
 
     delete u.password_hash;
@@ -335,6 +321,107 @@ app.post("/api/auth/login", async (req, res) => {
   } catch (e) {
     console.error(e);
     res.status(500).json({ ok: false, error: "Error login" });
+  }
+});
+
+// Forgot password (no revela si el email existe)
+// body: { email }
+app.post("/api/auth/forgot-password", async (req, res) => {
+  const email = String(req.body?.email || "").trim().toLowerCase();
+  if (!email) return res.status(400).json({ ok: false, error: "Falta email" });
+
+  // Respuesta siempre OK
+  res.json({
+    ok: true,
+    message: "Si el email existe, te enviamos un link para resetear.",
+  });
+
+  const client = await pool.connect();
+  try {
+    const q = await client.query(
+      `SELECT id, email, nombre FROM usuarios WHERE email=$1`,
+      [email]
+    );
+    if (!q.rowCount) return;
+
+    const user = q.rows[0];
+
+    const token = randomToken();
+    const tokenHash = sha256(token);
+    const expira = new Date(Date.now() + 1000 * 60 * 30); // 30 min
+
+    await client.query(
+      `INSERT INTO tokens_reset_password (usuario_id, token_hash, expira_en)
+       VALUES ($1,$2,$3)`,
+      [user.id, tokenHash, expira]
+    );
+
+    const link = `${baseUrl()}/reset.html?token=${token}`;
+
+    await sendMail({
+      to: user.email,
+      subject: "Resetear contraseña",
+      html: `
+        <p>Hola ${user.nombre || ""},</p>
+        <p>Para resetear tu contraseña, hacé click acá:</p>
+        <p><a href="${link}">Resetear contraseña</a></p>
+        <p>Este link vence en 30 minutos.</p>
+      `,
+    });
+  } catch (e) {
+    console.error(e);
+  } finally {
+    client.release();
+  }
+});
+
+// Reset password
+// body: { token, password }
+app.post("/api/auth/reset-password", async (req, res) => {
+  const token = String(req.body?.token || "");
+  const newPassword = String(req.body?.password || "");
+
+  if (!token || newPassword.length < 6) {
+    return res.status(400).json({
+      ok: false,
+      error: "Token inválido o contraseña muy corta (mín 6).",
+    });
+  }
+
+  const client = await pool.connect();
+  try {
+    const tokenHash = sha256(token);
+
+    const q = await client.query(
+      `SELECT id, usuario_id, expira_en, usado_en
+       FROM tokens_reset_password
+       WHERE token_hash=$1
+       ORDER BY creado_en DESC
+       LIMIT 1`,
+      [tokenHash]
+    );
+
+    if (!q.rowCount) return res.status(400).json({ ok: false, error: "Token inválido" });
+
+    const row = q.rows[0];
+    if (row.usado_en) return res.status(400).json({ ok: false, error: "Token ya usado" });
+    if (new Date(row.expira_en).getTime() < Date.now())
+      return res.status(400).json({ ok: false, error: "Token expirado" });
+
+    const hash = await bcrypt.hash(newPassword, 10);
+
+    await client.query("BEGIN");
+    await client.query(`UPDATE usuarios SET password_hash=$1 WHERE id=$2`, [hash, row.usuario_id]);
+    await client.query(`UPDATE tokens_reset_password SET usado_en=now() WHERE id=$1`, [row.id]);
+    await client.query("COMMIT");
+
+    res.json({ ok: true });
+  } catch (e) {
+    await client.query("ROLLBACK").catch(() => {});
+    console.error(e);
+    res.status(500).json({ ok: false, error: "Error reseteando" });
+  } finally {
+    client.release();
   }
 });
 
@@ -487,6 +574,7 @@ app.get("/api/supervisor/pools", async (req, res) => {
 // --------------------
 // EMPLEADO: ver pool de su supervisor + asientos disponibles + reservar
 // --------------------
+
 // GET /api/empleado/pool?empleado_id=...&piso=8&fecha=YYYY-MM-DD
 app.get("/api/empleado/pool", async (req, res) => {
   const empleadoId = String(req.query.empleado_id || "").trim();
@@ -654,9 +742,6 @@ app.post("/api/empleado/reservar", async (req, res) => {
     res.json({ ok: true, reserva: ins.rows[0] });
   } catch (e) {
     await client.query("ROLLBACK");
-    // unique violations:
-    // uq_reserva_pool_asiento -> asiento ya reservado
-    // uq_reserva_empleado_pool -> empleado ya reservó en ese pool
     if (e.code === "23505") {
       return res.status(409).json({
         ok: false,
@@ -706,7 +791,7 @@ app.delete("/api/admin/reservas/:id", async (req, res) => {
 });
 
 // --------------------
-// DEV: crear usuario SUPERVISOR/ADMIN rápido (protegido por SETUP_KEY)
+// DEV: crear usuario rápido (protegido por SETUP_KEY)
 // --------------------
 // POST /api/dev/create-user?key=...
 // body: { email, password, nombre, apellido, rol: 'SUPERVISOR'|'ADMIN'|'EMPLEADO', supervisor_email? }
@@ -735,7 +820,14 @@ app.post("/api/dev/create-user", devGuard, async (req, res) => {
       `INSERT INTO usuarios (email, password_hash, nombre, apellido, rol, supervisor_id, email_verificado)
        VALUES ($1,$2,$3,$4,$5,$6,TRUE)
        RETURNING id, email, nombre, apellido, rol, supervisor_id, email_verificado`,
-      [String(email).trim().toLowerCase(), hash, String(nombre).trim(), String(apellido).trim(), role, supervisorId]
+      [
+        String(email).trim().toLowerCase(),
+        hash,
+        String(nombre).trim(),
+        String(apellido).trim(),
+        role,
+        supervisorId,
+      ]
     );
     res.json({ ok: true, user: q.rows[0] });
   } catch (e) {

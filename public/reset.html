@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Resetear contraseña</title>
+
+    <link rel="stylesheet" href="/css/base.css" />
+    <link rel="stylesheet" href="/css/components.css" />
+    <link rel="stylesheet" href="/css/pages/index.css" />
+    <link rel="stylesheet" href="/css/scene.css" />
+  </head>
+
+  <body class="page-index">
+    <header>
+      <a href="/index.html" aria-label="Ir al inicio">
+        <img
+          src="/assets/images/assurant_logo.png"
+          alt="Logo Assurant"
+          class="logo"
+        />
+      </a>
+    </header>
+
+    <main class="sky">
+      <div class="bg-base"></div>
+      <canvas id="flightCanvas" aria-label="Animación niño volando"></canvas>
+
+      <div class="login-panel">
+        <div class="login-card auth-card">
+          <p class="auth-title">Nueva contraseña</p>
+
+          <form id="resetForm" class="auth-form" autocomplete="on">
+            <label class="auth-field">
+              <span class="auth-label">Contraseña nueva</span>
+              <input
+                id="newPass"
+                type="password"
+                class="auth-input"
+                placeholder="mínimo 6 caracteres"
+                required
+              />
+            </label>
+
+            <p id="resetError" class="error-msg"></p>
+
+            <button class="btn-acceder" id="btnReset" type="submit">
+              Guardar
+            </button>
+
+            <p class="auth-foot">
+              <a href="/index.html" class="auth-link-btn">Volver al login</a>
+            </p>
+          </form>
+        </div>
+      </div>
+    </main>
+
+    <script src="/js/pages/flight.js"></script>
+    <script src="/js/pages/reset.js"></script>
+  </body>
+</html>
