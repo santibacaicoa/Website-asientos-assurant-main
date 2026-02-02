@@ -1,65 +1,73 @@
 // =============================================================================
-// floors.js - Selección de piso (capas PNG)
-// - Click en piso -> guarda en localStorage (reserva.floor)
-// - Si existe reserva.id -> PATCH al backend para guardar piso_id
+// floors.js - Selector de piso (capas PNG)
+// Nuevo flujo:
+// - Requiere estar logueado (localStorage.user)
+// - Lee query params: ?mode=empleado|supervisor&fecha=YYYY-MM-DD
+// - Click en piso -> navega a /floor.html?piso=X&fecha=...&mode=...
 // =============================================================================
 
-document.addEventListener('DOMContentLoaded', () => {
-  const floorLayers = document.querySelectorAll('.floor-layer');
-  if (!floorLayers.length) return;
-
-  const floorRoutes = {
-    '7': 'floor7.html',
-    '8': 'floor8.html',
-    '11': 'floor11.html',
-    '12': 'floor12.html',
+document.addEventListener("DOMContentLoaded", () => {
+  const safeJson = (raw) => {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
   };
 
-  function getJSON(key, fallback = null) {
-    try { return JSON.parse(localStorage.getItem(key)) ?? fallback; }
-    catch { return fallback; }
+  const user = safeJson(localStorage.getItem("user"));
+  if (!user?.id) {
+    window.location.href = "/index.html";
+    return;
   }
 
-  async function setPisoEnBackend(reservaId, pisoNumero) {
-    const res = await fetch(`/api/reservas/${reservaId}/piso`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ piso: Number(pisoNumero) })
-    });
-    const data = await res.json().catch(() => ({}));
-    return { res, data };
+  const params = new URLSearchParams(window.location.search);
+  const mode = String(params.get("mode") || "").toLowerCase();
+  const fecha = String(params.get("fecha") || "");
+
+  const isISO = /^\d{4}-\d{2}-\d{2}$/.test(fecha);
+  const safeFecha = isISO
+    ? fecha
+    : localStorage.getItem("reserva.fecha") || new Date().toISOString().slice(0, 10);
+
+  const safeMode = mode === "supervisor" || mode === "empleado" ? mode : "empleado";
+
+  // Ajustar copy según modo
+  const titleEl = document.querySelector(".floor-title");
+  const subEl = document.querySelector(".floor-subtitle");
+
+  if (titleEl) {
+    titleEl.textContent =
+      safeMode === "supervisor"
+        ? "Elegí un piso para habilitar asientos"
+        : "Elegí un piso para tu reserva";
   }
 
-  async function seleccionarPiso(floor) {
-    const floorStr = String(floor);
-    localStorage.setItem('reserva.floor', floorStr);
-
-    const reservaId = getJSON('reserva.id', null);
-
-    if (reservaId) {
-      try {
-        const { res, data } = await setPisoEnBackend(reservaId, floorStr);
-        if (!res.ok || !data.ok) {
-          console.warn('No se pudo guardar el piso en backend:', data);
-        } else {
-          console.log('Piso guardado en backend:', data.reserva);
-        }
-      } catch (err) {
-        console.error('Error guardando piso en backend:', err);
-      }
-    } else {
-      console.warn('No hay reserva.id en localStorage. (¿Se creó la pre-reserva en Home?)');
-    }
-
-    const target = floorRoutes[floorStr] || 'home.html';
-    window.location.href = target;
+  if (subEl) {
+    subEl.textContent =
+      safeMode === "supervisor"
+        ? "Seleccioná el piso. En la próxima pantalla vas a elegir qué asientos quedan habilitados para esa fecha."
+        : "Seleccioná el piso. En la próxima pantalla vas a elegir un asiento disponible para esa fecha.";
   }
 
-  floorLayers.forEach(layer => {
-    layer.addEventListener('click', () => {
-      const floor = layer.dataset.floor;
-      if (!floor) return;
-      seleccionarPiso(floor);
+  const floorLayers = document.querySelectorAll(".floor-layer");
+  if (!floorLayers.length) return;
+
+  const goFloor = (piso) => {
+    const p = String(piso);
+    localStorage.setItem("reserva.floor", p);
+    localStorage.setItem("reserva.fecha", safeFecha);
+
+    window.location.href = `/floor.html?piso=${encodeURIComponent(
+      p
+    )}&fecha=${encodeURIComponent(safeFecha)}&mode=${encodeURIComponent(safeMode)}`;
+  };
+
+  floorLayers.forEach((layer) => {
+    layer.addEventListener("click", () => {
+      const piso = layer.dataset.floor;
+      if (!piso) return;
+      goFloor(piso);
     });
   });
 });

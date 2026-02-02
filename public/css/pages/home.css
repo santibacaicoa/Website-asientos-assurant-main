@@ -1,270 +1,130 @@
-/* ==========================================================================
-HOME: PANEL, INPUTS, BOTÓN CONTINUAR
-========================================================================== */
+/* ==============================
+   HOME (mismo look que INDEX)
+   ============================== */
 
-.home-wrap{
-align-content: center;
-justify-content: center;
-place-items: start center;
-position: relative;
-z-index: 3;
-min-height: 50svh;
-display: grid;
+.page-home .bg-building {
+  display: none !important;
 }
 
-.panel{
-  z-index: 19;
-  width: min(1200px, 80vw);
-  height: 700px;
-
-  position: relative;
-  top: 330px;
-
-  /* antes: rgba(255,255,255,0.08) -> muy transparente */
-  background: rgba(0,0,0,0.28);
-
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-
-  border: 1px solid rgba(255,255,255,0.20);
-  border-radius: 5px;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.35);
-
+.page-home main.sky {
+  min-height: 100vh;
   display: grid;
-  grid-template-rows: none;
-  grid-auto-flow: row;
-  grid-auto-rows: auto;
-  gap: none;
-  padding: 1rem;
+  place-items: center;
+  overflow: hidden;
+}
+
+/* Panel centrado */
+.page-home .login-panel {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.page-home .login-panel > * {
+  pointer-events: auto;
+}
+
+/* Card */
+.page-home .login-card.auth-card {
+  width: min(420px, 92vw);
+  padding: 18px 16px;
+  border-radius: 16px;
+  background: rgba(15, 18, 22, 0.82);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.page-home .auth-title {
+  color: #fff;
+  margin: 0 0 6px;
+  font-size: 18px;
+  font-weight: 700;
   text-align: center;
 }
 
-
-.panel-title{
-  font-size: clamp(1.25rem, 2.2vw, 1.8rem);
-  font-weight: 600;
-  color: #fff;
-  letter-spacing: .3px;
-
-  /* nuevo: legibilidad */
-  text-shadow: 0 2px 10px rgba(0,0,0,0.55);
-}
-
-.panel-divider{
-  border: 0;
-  height: 1px;
-  margin: 18px 0; /* más aire */
-  background: rgba(255,255,255,.16);
-}
-
-
-
-.field-label,
-.field-input {
-margin-left: auto;
-margin-right: auto;
-text-align: center;
-}
-
-.field-label{
-  display: block;              /* clave: siempre arriba */
+.page-home .auth-form {
   width: 100%;
-  max-width: 520px;
-  margin: 10px auto 6px;       /* más aire arriba/abajo */
-  color:#e9eef6;
-  font-size:.95rem;
-
-  /* nuevo: legibilidad */
-  text-shadow: 0 2px 8px rgba(0,0,0,0.55);
+  display: grid;
+  gap: 10px;
 }
 
-
-.field-input{
-margin-bottom: 0.3rem;
-width: 100%;
-max-width: 520px;
-height: 44px;
-border-radius: 10px;
-border: 1px solid rgba(255,255,255,0.25);
-background: rgba(255,255,255,0.12);
-color:#fff;
-padding: 0 .9rem;
-outline: none;
-transition: border-color .2s ease, background .2s ease, box-shadow .2s ease;
+.page-home .auth-field {
+  display: grid;
+  gap: 6px;
 }
 
-.field-input::placeholder{ color:#cfd6df; }
-
-.field-input:focus{
-border-color: rgba(88,170,255,0.9);
-background: rgba(255,255,255,0.16);
-box-shadow: 0 0 0 4px rgba(88,170,255,0.25);
+.page-home .auth-label {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 12px;
 }
 
-.choices{
-display: grid;
-grid-template-columns: repeat(2, minmax(220px, 1fr));
-gap: 1rem;
-align-content: start;
-text-align: center;
+.page-home .auth-input {
+  height: 44px;
+  width: 100%;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  outline: none;
 }
 
-.choice-legend{
-grid-column: 1 / -1;
-color:#e9eef6;
-margin: .25rem 0 .25rem;
-font-size: .95rem;
+.page-home .auth-input::placeholder {
+  color: rgba(255, 255, 255, 0.45);
 }
 
-.choice-card{
-text-align: center;
-position: relative;
-display: grid;
-align-content: center;
-gap: .25rem;
-padding: 1rem;
-border-radius: 14px;
-background: rgba(255,255,255,0.10);
-border: 1px solid rgba(255,255,255,0.22);
-color:#fff;
-cursor: pointer;
-user-select: none;
-transition: transform .15s ease, border-color .2s ease, background .2s ease, box-shadow .2s ease;
+.page-home .auth-input:focus {
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1);
 }
 
-.choice-card:hover{
-transform: translateY(-1px);
-background: rgba(255,255,255,0.14);
+/* Mensajes (reutilizamos "error-msg" para texto general) */
+.page-home .error-msg {
+  width: 100%;
+  margin: 0;
+  min-height: 18px;
+  color: rgba(255, 255, 255, 0.92);
 }
 
-.choice-card input{
-position: absolute;
-inset: 0;
-opacity: 0;
-pointer-events: none;
+/* Foot (texto bajo) */
+.page-home .auth-foot {
+  margin: 6px 0 0;
+  text-align: center;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.88);
 }
 
-.choice-card .choice-title{ font-weight: 600; }
-.choice-card .choice-desc{ opacity: .85; font-size: .9rem; }
-
-.choice-card:has(input:checked){
-border-color: rgba(88,170,255,0.95);
-box-shadow: 0 0 0 4px rgba(88,170,255,0.25);
-background: rgba(255,255,255,0.18);
+/* Botones: los estilos vienen de components.css
+   - .btn-acceder
+   - .btn-secondary
+   Solo les damos width 100% para que quede standard en mobile */
+.page-home .btn-acceder,
+.page-home .btn-secondary {
+  width: 100%;
 }
 
-/* ==========================================================================
-CAPAS DE FONDO Y EDIFICIO
-========================================================================== */
+/* ==============================
+   FLOORS background
+   ============================== */
 
-/* Fondo base (SIN ZOOM) */
-.bg-base{
-position: fixed;
-inset: 0;
-z-index: 0;
-background-image: url('/assets/images/captura.png');
-background-size: cover;
-background-position: center;
-pointer-events: none;
+.page-floors {
+  min-height: 100vh;
+  background-image: url("/assets/images/captura.png");
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
 }
 
-/* Edificio (SIN ZOOM) */
-.bg-building{
-position: fixed;
-inset: 0;
-z-index: 1;
-transition: transform 0.2s ease;
-transform: translateY(180px) scale(0.6);
-display: flex;
-align-items: baseline;
-justify-content: center;
-scale: 0.60;
-}
-
-/* Estado de zoom */
-.zoom-building{
-position: fixed;
-inset: 0;
-z-index: 1;
-transition: transform 0.2 ease;
-transform: translateY(140px) scale(0.8);
-display: flex;
-align-items: baseline;
-justify-content: center;
-}
-
-
-/* ==========================================================================
-   RESPONSIVE
-   ========================================================================== */
-
-@media (max-width: 1700px){
-    .logo{
-        height: 100px;
-    }
-
-    .floor-layer{
-      width: 100%;        /* antes: 100vw */
-      max-width: 400px;
-      min-width: 140px;
-    }
-
-.floor-layer-8{
-  bottom: 18%
-}
-
-.floor-layer-11{
-  bottom: 36%;
-}
-
-.floor-layer-12{
-  bottom: 55.7%;
-}
-
-.panel{ width: 92vw; height: auto; min-height: 70vh; }
-.choices{ grid-template-columns: 1fr; }
-
-.floors-layout{
-    grid-template-columns: minmax(260px, 1fr);
-    padding: 1rem 1rem 2rem;
-  }
-
-.floor-ui{
-    max-width: 100%;
-    top: 180px;
-    left: auto;
-    height: 75px;
-}  
-
-.floor-subtitle{
-    display: none;
-}
-}
-
-@media (max-width: 720px){
-  .input-clave{ width: 90vw; }
-
-  .floor-layer{
-    width: 100%;
-    max-width: 340px;
-    min-width: 90px;
-}
-
-.floor-layer-8{
-  bottom: 12.3%;
-}
-
-.floor-layer-11{
-  bottom: 24.6%;
-}
-
-.floor-layer-12{
-  bottom: 38.1%;
-}
-
-.building-frame{
-  width: min(100vw, 350px);
-  aspect-ratio: 5 / 11.9 /* ajustá si tu edificio es más alto/bajo */
-}
-
+/* Apagamos fondos viejos si existían */
+.page-floors .bg-base,
+.page-floors .bg-building {
+  display: none !important;
 }

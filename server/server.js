@@ -932,6 +932,71 @@ app.get("/api/empleado/disponibles", async (req, res) => {
   }
 });
 
+// GET /api/empleado/pool-status
+// Devuelve TODOS los asientos del pool del supervisor del empleado para (piso, fecha)
+// incluyendo si están ocupados y por quién.
+// Útil para pintar el mapa (libre/ocupado) sin filtrar solo disponibles.
+app.get("/api/empleado/pool-status", async (req, res) => {
+  const empleadoId = String(req.query.empleado_id || "").trim();
+  const pisoNum = Number(req.query.piso);
+  const fecha = String(req.query.fecha || "").trim();
+
+  if (!empleadoId || !pisoNum || !isISODate(fecha)) {
+    return res.status(400).json({ ok: false, error: "Faltan datos" });
+  }
+
+  const client = await pool.connect();
+  try {
+    const empleado = await assertRole(client, empleadoId, ["EMPLEADO", "ADMIN"]);
+    if (!empleado.supervisor_id) {
+      return res.json({ ok: true, asientos: [] });
+    }
+
+    const pisoId = await getPisoIdByNumero(client, pisoNum);
+    if (!pisoId) return res.status(404).json({ ok: false, error: "Piso no existe" });
+
+    const poolQ = await client.query(
+      `SELECT id FROM pools_supervisor
+       WHERE supervisor_id=$1 AND piso_id=$2 AND fecha=$3`,
+      [empleado.supervisor_id, pisoId, fecha]
+    );
+    if (!poolQ.rowCount) return res.json({ ok: true, asientos: [] });
+
+    const poolId = poolQ.rows[0].id;
+
+    // Todos los asientos del pool + ocupación (si hay reserva en esa fecha)
+    const q = await client.query(
+      `
+      SELECT
+        a.id,
+        a.codigo,
+        a.x,
+        a.y,
+        a.radio,
+        (r.id IS NOT NULL) AS ocupado,
+        r.empleado_id AS ocupado_por
+      FROM pool_asientos pa
+      JOIN asientos a ON a.id = pa.asiento_id
+      LEFT JOIN reservas r
+        ON r.asiento_id = a.id
+       AND r.fecha = $2
+      WHERE pa.pool_id = $1
+        AND a.activo = TRUE
+      ORDER BY a.codigo ASC
+      `,
+      [poolId, fecha]
+    );
+
+    res.json({ ok: true, asientos: q.rows });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: "Error pool-status" });
+  } finally {
+    client.release();
+  }
+});
+
+
 // POST /api/empleado/reservar
 app.post("/api/empleado/reservar", async (req, res) => {
   const empleadoId = String(req.body?.empleado_id || "").trim();

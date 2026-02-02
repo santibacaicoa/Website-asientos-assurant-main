@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Floor</title>
+    <link rel="stylesheet" href="/css/base.css" />
+    <link rel="stylesheet" href="/css/components.css" />
+    <link rel="stylesheet" href="/css/pages/floor.css" />
+  </head>
+
+  <body class="page-floor">
+    <main class="floor-page">
+      <div class="floor-layout">
+        <aside class="floor-side">
+          <div class="side-card">
+            <h1 id="floorTitle" class="side-title">Piso</h1>
+
+            <div id="modeBadge" class="admin-badge is-hidden"></div>
+
+            <label class="side-label" for="datePick">Fecha</label>
+            <input id="datePick" class="side-date" type="date" />
+
+            <div class="seat-legend" id="legendEmpleado">
+              <span class="legend-item"><i class="dot free"></i> Libre</span>
+              <span class="legend-item"><i class="dot busy"></i> Ocupado</span>
+              <span class="legend-item"
+                ><i class="dot sel"></i> Seleccionado</span
+              >
+            </div>
+
+            <div class="confirm-row">
+              <div class="confirm-count">
+                Seleccionados: <span id="selCount">0</span>
+              </div>
+
+              <button
+                id="btnConfirm"
+                class="side-btn side-btn-primary"
+                type="button"
+                disabled
+              >
+                Confirmar
+              </button>
+
+              <button id="btnClearSel" class="side-btn" type="button" disabled>
+                Limpiar selección
+              </button>
+            </div>
+
+            <button id="btnBack" class="side-btn" type="button">Volver</button>
+            <button id="btnLogout" class="side-btn" type="button">
+              Cerrar sesión
+            </button>
+
+            <p id="sideMsg" class="side-msg"></p>
+          </div>
+        </aside>
+
+        <section class="floor-map" id="floorMap" aria-label="Mapa del piso">
+          <img
+            id="floorBg"
+            class="floor-bg"
+            src=""
+            alt="Plano"
+            draggable="false"
+          />
+          <div id="seatsLayer" class="seats-layer" aria-label="Asientos"></div>
+        </section>
+      </div>
+    </main>
+
+    <script src="/js/pages/floor.js"></script>
+  </body>
+</html>

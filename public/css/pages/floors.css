@@ -196,3 +196,20 @@
 }
 
 }
+/* ==============================
+   FLOORS background
+   ============================== */
+
+.page-floors {
+  min-height: 100vh;
+  background-image: url("/assets/images/captura.png");
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+}
+
+/* Apagamos fondos viejos si existían */
+.page-floors .bg-base,
+.page-floors .bg-building {
+  display: none !important;
+}
