@@ -128,6 +128,29 @@ function devGuard(req, res, next) {
 }
 
 // --------------------
+// Cooldowns (anti-spam)
+// --------------------
+const COOLDOWN_MS = 60 * 1000; // 60s
+const resendCooldownByEmail = new Map(); // email -> lastTimestamp
+const resendCooldownByIp = new Map();    // ip -> lastTimestamp
+
+function getClientIp(req) {
+  // Render / proxies: x-forwarded-for puede venir "ip, ip, ip"
+  const xff = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim();
+  return xff || req.socket?.remoteAddress || "unknown";
+}
+
+function isInCooldown(map, key) {
+  const last = map.get(key);
+  if (!last) return false;
+  return Date.now() - last < COOLDOWN_MS;
+}
+
+function setCooldown(map, key) {
+  map.set(key, Date.now());
+}
+
+// --------------------
 // HEALTH
 // --------------------
 app.get("/healthz", async (_req, res) => {
@@ -330,11 +353,19 @@ app.post("/api/auth/resend-verification", async (req, res) => {
   const email = String(req.body?.email || "").trim().toLowerCase();
   if (!email) return res.status(400).json({ ok: false, error: "Falta email" });
 
-  // Respuesta siempre OK (para evitar enumeración de usuarios)
-  res.json({
-    ok: true,
-    message: "Si tu cuenta existe y todavía no está verificada, te reenviamos el email.",
-  });
+  const ip = getClientIp(req);
+
+  // Cooldown por email / IP (NO revela existencia)
+  const emailInCooldown = isInCooldown(resendCooldownByEmail, email);
+  const ipInCooldown = isInCooldown(resendCooldownByIp, ip);
+
+  if (emailInCooldown || ipInCooldown) {
+    return res.json({
+      ok: true,
+      message:
+        "Si ya pediste un reenvío hace poco, esperá 1 minuto y probá de nuevo.",
+    });
+  }
 
   const client = await pool.connect();
   try {
@@ -345,10 +376,28 @@ app.post("/api/auth/resend-verification", async (req, res) => {
       [email]
     );
 
-    if (!q.rowCount) return;
+    // Respuesta siempre OK (anti-enumeración)
+    // pero solo seteamos cooldown si vamos a procesar (para no permitir spam)
+    setCooldown(resendCooldownByEmail, email);
+    setCooldown(resendCooldownByIp, ip);
+
+    // Si no existe o ya está verificado, no hacemos nada más
+    if (!q.rowCount) {
+      return res.json({
+        ok: true,
+        message:
+          "Si tu cuenta existe y todavía no está verificada, te reenviamos el email.",
+      });
+    }
 
     const user = q.rows[0];
-    if (user.email_verificado) return;
+    if (user.email_verificado) {
+      return res.json({
+        ok: true,
+        message:
+          "Si tu cuenta existe y todavía no está verificada, te reenviamos el email.",
+      });
+    }
 
     const token = randomToken();
     const tokenHash = sha256(token);
@@ -371,18 +420,47 @@ app.post("/api/auth/resend-verification", async (req, res) => {
         <p>Este link vence en 24 horas.</p>
       `,
     });
+
+    return res.json({
+      ok: true,
+      message:
+        "Listo. Si tu cuenta existe y todavía no está verificada, te reenviamos el email.",
+    });
   } catch (e) {
     console.error(e);
+    // Igual mantenemos respuesta genérica
+    return res.json({
+      ok: true,
+      message:
+        "Si tu cuenta existe y todavía no está verificada, te reenviamos el email.",
+    });
   } finally {
     client.release();
   }
 });
+
 
 // Forgot password (no revela si el email existe)
 // body: { email }
 app.post("/api/auth/forgot-password", async (req, res) => {
   const email = String(req.body?.email || "").trim().toLowerCase();
   if (!email) return res.status(400).json({ ok: false, error: "Falta email" });
+
+    const ip = getClientIp(req);
+
+  const emailInCooldown = isInCooldown(resendCooldownByEmail, `fp:${email}`);
+  const ipInCooldown = isInCooldown(resendCooldownByIp, `fp:${ip}`);
+
+  if (emailInCooldown || ipInCooldown) {
+    return res.json({
+      ok: true,
+      message: "Si ya pediste un envío hace poco, esperá 1 minuto y probá de nuevo.",
+    });
+  }
+
+  setCooldown(resendCooldownByEmail, `fp:${email}`);
+  setCooldown(resendCooldownByIp, `fp:${ip}`);
+
 
   // Respuesta siempre OK
   res.json({
