@@ -5,8 +5,14 @@
 // - DATABASE_URL: connection string de Neon
 // - DATABASE_SSL: "true" para forzar SSL (Render + Neon)
 // - SETUP_KEY: key para endpoints /api/dev/*
-// - SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS: SMTP
-// - MAIL_FROM: ejemplo "Assurant <no-reply@assurant.com>"
+//
+// OPCIÓN SMTP (puede NO funcionar en Render Free por bloqueo de puertos):
+// - SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS
+// - MAIL_FROM: ejemplo "Assurant <no-reply@tudominio.com>"
+//
+// OPCIÓN API HTTPS (recomendado para que sea “free” en Render Free):
+// - RESEND_API_KEY: API key de Resend
+// - MAIL_FROM: ejemplo "Assurant <no-reply@tudominio.com>" (requiere dominio verificado en Resend)
 // - APP_BASE_URL: ejemplo "http://localhost:3000" o tu URL de Render
 
 const path = require("path");
@@ -27,31 +33,102 @@ const {
   SMTP_PASS,
   MAIL_FROM,
   APP_BASE_URL,
+  RESEND_API_KEY,
 } = process.env;
 
+// --------------------
+// Email transport selection
+// --------------------
+// 1) Si existe RESEND_API_KEY -> manda por HTTPS (puerto 443) usando Resend (recomendado en Render Free)
+// 2) Si no, intenta SMTP con nodemailer (puede fallar en Render Free por bloqueo SMTP)
+const smtpPort = Number(SMTP_PORT || 587);
+
 const transporter =
-  SMTP_HOST && SMTP_USER && SMTP_PASS
+  !RESEND_API_KEY && SMTP_HOST && SMTP_USER && SMTP_PASS
     ? nodemailer.createTransport({
         host: SMTP_HOST,
-        port: Number(SMTP_PORT || 587),
-        secure: false,
+        port: smtpPort,
+        secure: smtpPort === 465, // 465 => TLS
         auth: { user: SMTP_USER, pass: SMTP_PASS },
       })
     : null;
 
+function baseUrl() {
+  return APP_BASE_URL || "http://localhost:3000";
+}
+
 async function sendMail({ to, subject, html }) {
-  // Si no hay SMTP configurado, no rompemos: logueamos el mail (modo dev).
+  // Validación mínima
+  const from = MAIL_FROM || SMTP_USER || "";
+  if (!from) {
+    console.warn("⚠️ [MAIL] MAIL_FROM no configurado. No se enviará email.");
+    console.warn("To:", to, "Subject:", subject);
+    return;
+  }
+
+  // ---- Opción 2: API HTTPS (Resend) ----
+  if (RESEND_API_KEY) {
+    try {
+      // Nota: en Node 18+ fetch existe globalmente (Render suele usar Node moderno).
+      const resp = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${RESEND_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from,
+          to,
+          subject,
+          html,
+        }),
+      });
+
+      const data = await resp.json().catch(() => ({}));
+
+      if (!resp.ok) {
+        console.error("❌ [RESEND ERROR]", resp.status, data);
+        throw new Error(
+          `Resend error: ${resp.status} ${data?.message || "unknown"}`
+        );
+      }
+
+      console.log("📧 [RESEND SENT] to:", to, "subject:", subject);
+      return;
+    } catch (err) {
+      console.error("❌ [RESEND ERROR]", err?.message || err);
+      throw err;
+    }
+  }
+
+  // ---- SMTP fallback ----
   if (!transporter) {
-    console.log("📧 [DEV MAIL] to:", to, "subject:", subject);
+    console.log("📧 [DEV MAIL] transporter=NULL -> SMTP no configurado o deshabilitado");
+    console.log("to:", to, "subject:", subject);
     console.log(html);
     return;
   }
-  await transporter.sendMail({
-    from: MAIL_FROM || SMTP_USER,
-    to,
-    subject,
-    html,
-  });
+
+  try {
+    await transporter.sendMail({
+      from,
+      to,
+      subject,
+      html,
+    });
+    console.log("📧 [SMTP SENT] to:", to, "subject:", subject);
+  } catch (err) {
+    console.error("❌ [SMTP MAIL ERROR]", err?.message || err);
+    console.error("SMTP CONFIG:", {
+      host: SMTP_HOST,
+      port: smtpPort,
+      secure: smtpPort === 465,
+      user: SMTP_USER ? "SET" : "MISSING",
+      pass: SMTP_PASS ? "SET" : "MISSING",
+      from: from ? "SET" : "MISSING",
+    });
+    throw err;
+  }
 }
 
 function randomToken() {
@@ -69,8 +146,7 @@ app.use(express.static(path.join(__dirname, "..", "public")));
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl:
-    process.env.DATABASE_SSL === "true" ? { rejectUnauthorized: false } : false,
+  ssl: process.env.DATABASE_SSL === "true" ? { rejectUnauthorized: false } : false,
 });
 
 // --------------------
@@ -78,10 +154,6 @@ const pool = new Pool({
 // --------------------
 function isISODate(yyyyMmDd) {
   return /^\d{4}-\d{2}-\d{2}$/.test(String(yyyyMmDd || ""));
-}
-
-function baseUrl() {
-  return APP_BASE_URL || "http://localhost:3000";
 }
 
 async function getUserById(client, id) {
@@ -132,7 +204,7 @@ function devGuard(req, res, next) {
 // --------------------
 const COOLDOWN_MS = 60 * 1000; // 60s
 const resendCooldownByEmail = new Map(); // email -> lastTimestamp
-const resendCooldownByIp = new Map();    // ip -> lastTimestamp
+const resendCooldownByIp = new Map(); // ip -> lastTimestamp
 
 function getClientIp(req) {
   // Render / proxies: x-forwarded-for puede venir "ip, ip, ip"
@@ -223,23 +295,29 @@ app.post("/api/auth/register", async (req, res) => {
 
     await client.query("COMMIT");
 
-    // Enviar mail verificación (afuera del TX)
+    // Enviar mail verificación (afuera del TX) — IMPORTANTE:
+    // si falla el envío, NO rompemos el registro. Logueamos el error y devolvemos OK igual.
     const link = `${baseUrl()}/api/auth/verify-email?token=${token}`;
-    await sendMail({
-      to: user.email,
-      subject: "Verificá tu email",
-      html: `
-        <p>Hola ${user.nombre},</p>
-        <p>Para verificar tu email, hacé click acá:</p>
-        <p><a href="${link}">Verificar email</a></p>
-        <p>Este link vence en 24 horas.</p>
-      `,
-    });
+    try {
+      await sendMail({
+        to: user.email,
+        subject: "Verificá tu email",
+        html: `
+          <p>Hola ${user.nombre},</p>
+          <p>Para verificar tu email, hacé click acá:</p>
+          <p><a href="${link}">Verificar email</a></p>
+          <p>Este link vence en 24 horas.</p>
+        `,
+      });
+    } catch (mailErr) {
+      console.error("❌ No se pudo enviar mail de verificación:", mailErr?.message || mailErr);
+    }
 
     // Importante: no auto-login, pediste verificación primero
     res.json({
       ok: true,
-      message: "Cuenta creada. Te enviamos un email para verificar tu cuenta antes de ingresar.",
+      message:
+        "Cuenta creada. Te enviamos un email para verificar tu cuenta antes de ingresar.",
     });
   } catch (e) {
     await client.query("ROLLBACK").catch(() => {});
@@ -281,15 +359,13 @@ app.get("/api/auth/verify-email", async (req, res) => {
 
     await client.query("BEGIN");
 
-    await client.query(
-      `UPDATE usuarios SET email_verificado = TRUE WHERE id = $1`,
-      [row.usuario_id]
-    );
+    await client.query(`UPDATE usuarios SET email_verificado = TRUE WHERE id = $1`, [
+      row.usuario_id,
+    ]);
 
-    await client.query(
-      `UPDATE tokens_verificacion_email SET usado_en = now() WHERE id = $1`,
-      [row.id]
-    );
+    await client.query(`UPDATE tokens_verificacion_email SET usado_en = now() WHERE id = $1`, [
+      row.id,
+    ]);
 
     await client.query("COMMIT");
 
@@ -362,8 +438,7 @@ app.post("/api/auth/resend-verification", async (req, res) => {
   if (emailInCooldown || ipInCooldown) {
     return res.json({
       ok: true,
-      message:
-        "Si ya pediste un reenvío hace poco, esperá 1 minuto y probá de nuevo.",
+      message: "Si ya pediste un reenvío hace poco, esperá 1 minuto y probá de nuevo.",
     });
   }
 
@@ -376,8 +451,7 @@ app.post("/api/auth/resend-verification", async (req, res) => {
       [email]
     );
 
-    // Respuesta siempre OK (anti-enumeración)
-    // pero solo seteamos cooldown si vamos a procesar (para no permitir spam)
+    // seteamos cooldown igual (no permitir spam)
     setCooldown(resendCooldownByEmail, email);
     setCooldown(resendCooldownByIp, ip);
 
@@ -385,8 +459,7 @@ app.post("/api/auth/resend-verification", async (req, res) => {
     if (!q.rowCount) {
       return res.json({
         ok: true,
-        message:
-          "Si tu cuenta existe y todavía no está verificada, te reenviamos el email.",
+        message: "Si tu cuenta existe y todavía no está verificada, te reenviamos el email.",
       });
     }
 
@@ -394,8 +467,7 @@ app.post("/api/auth/resend-verification", async (req, res) => {
     if (user.email_verificado) {
       return res.json({
         ok: true,
-        message:
-          "Si tu cuenta existe y todavía no está verificada, te reenviamos el email.",
+        message: "Si tu cuenta existe y todavía no está verificada, te reenviamos el email.",
       });
     }
 
@@ -410,35 +482,35 @@ app.post("/api/auth/resend-verification", async (req, res) => {
     );
 
     const link = `${baseUrl()}/api/auth/verify-email?token=${token}`;
-    await sendMail({
-      to: user.email,
-      subject: "Reenvío: verificá tu email",
-      html: `
-        <p>Hola ${user.nombre || ""},</p>
-        <p>Te reenviamos el link para verificar tu email:</p>
-        <p><a href="${link}">Verificar email</a></p>
-        <p>Este link vence en 24 horas.</p>
-      `,
-    });
+    try {
+      await sendMail({
+        to: user.email,
+        subject: "Reenvío: verificá tu email",
+        html: `
+          <p>Hola ${user.nombre || ""},</p>
+          <p>Te reenviamos el link para verificar tu email:</p>
+          <p><a href="${link}">Verificar email</a></p>
+          <p>Este link vence en 24 horas.</p>
+        `,
+      });
+    } catch (mailErr) {
+      console.error("❌ No se pudo reenviar mail de verificación:", mailErr?.message || mailErr);
+    }
 
     return res.json({
       ok: true,
-      message:
-        "Listo. Si tu cuenta existe y todavía no está verificada, te reenviamos el email.",
+      message: "Listo. Si tu cuenta existe y todavía no está verificada, te reenviamos el email.",
     });
   } catch (e) {
     console.error(e);
-    // Igual mantenemos respuesta genérica
     return res.json({
       ok: true,
-      message:
-        "Si tu cuenta existe y todavía no está verificada, te reenviamos el email.",
+      message: "Si tu cuenta existe y todavía no está verificada, te reenviamos el email.",
     });
   } finally {
     client.release();
   }
 });
-
 
 // Forgot password (no revela si el email existe)
 // body: { email }
@@ -446,7 +518,7 @@ app.post("/api/auth/forgot-password", async (req, res) => {
   const email = String(req.body?.email || "").trim().toLowerCase();
   if (!email) return res.status(400).json({ ok: false, error: "Falta email" });
 
-    const ip = getClientIp(req);
+  const ip = getClientIp(req);
 
   const emailInCooldown = isInCooldown(resendCooldownByEmail, `fp:${email}`);
   const ipInCooldown = isInCooldown(resendCooldownByIp, `fp:${ip}`);
@@ -460,7 +532,6 @@ app.post("/api/auth/forgot-password", async (req, res) => {
 
   setCooldown(resendCooldownByEmail, `fp:${email}`);
   setCooldown(resendCooldownByIp, `fp:${ip}`);
-
 
   // Respuesta siempre OK
   res.json({
@@ -490,16 +561,20 @@ app.post("/api/auth/forgot-password", async (req, res) => {
 
     const link = `${baseUrl()}/reset.html?token=${token}`;
 
-    await sendMail({
-      to: user.email,
-      subject: "Resetear contraseña",
-      html: `
-        <p>Hola ${user.nombre || ""},</p>
-        <p>Para resetear tu contraseña, hacé click acá:</p>
-        <p><a href="${link}">Resetear contraseña</a></p>
-        <p>Este link vence en 30 minutos.</p>
-      `,
-    });
+    try {
+      await sendMail({
+        to: user.email,
+        subject: "Resetear contraseña",
+        html: `
+          <p>Hola ${user.nombre || ""},</p>
+          <p>Para resetear tu contraseña, hacé click acá:</p>
+          <p><a href="${link}">Resetear contraseña</a></p>
+          <p>Este link vence en 30 minutos.</p>
+        `,
+      });
+    } catch (mailErr) {
+      console.error("❌ No se pudo enviar mail de reset:", mailErr?.message || mailErr);
+    }
   } catch (e) {
     console.error(e);
   } finally {
@@ -543,7 +618,10 @@ app.post("/api/auth/reset-password", async (req, res) => {
     const hash = await bcrypt.hash(newPassword, 10);
 
     await client.query("BEGIN");
-    await client.query(`UPDATE usuarios SET password_hash=$1 WHERE id=$2`, [hash, row.usuario_id]);
+    await client.query(`UPDATE usuarios SET password_hash=$1 WHERE id=$2`, [
+      hash,
+      row.usuario_id,
+    ]);
     await client.query(`UPDATE tokens_reset_password SET usado_en=now() WHERE id=$1`, [row.id]);
     await client.query("COMMIT");
 
@@ -639,10 +717,10 @@ app.post("/api/supervisor/pools", async (req, res) => {
 
     const clean = asiento_ids.map((x) => String(x).trim()).filter(Boolean);
     for (const asientoId of clean) {
-      await client.query(
-        `INSERT INTO pool_asientos (pool_id, asiento_id) VALUES ($1,$2)`,
-        [poolRow.id, asientoId]
-      );
+      await client.query(`INSERT INTO pool_asientos (pool_id, asiento_id) VALUES ($1,$2)`, [
+        poolRow.id,
+        asientoId,
+      ]);
     }
 
     await client.query("COMMIT");
@@ -682,10 +760,9 @@ app.get("/api/supervisor/pool", async (req, res) => {
 
     const poolId = poolQ.rows[0].id;
 
-    const asQ = await client.query(
-      `SELECT asiento_id FROM pool_asientos WHERE pool_id=$1`,
-      [poolId]
-    );
+    const asQ = await client.query(`SELECT asiento_id FROM pool_asientos WHERE pool_id=$1`, [
+      poolId,
+    ]);
 
     res.json({ ok: true, pool: { id: poolId }, asientos: asQ.rows.map((r) => r.asiento_id) });
   } catch (e) {
@@ -779,10 +856,9 @@ app.post("/api/empleado/reservar", async (req, res) => {
     }
 
     // validar que el asiento exista
-    const asQ = await client.query(
-      `SELECT id, piso_id FROM asientos WHERE id=$1 AND activo=TRUE`,
-      [asientoId]
-    );
+    const asQ = await client.query(`SELECT id, piso_id FROM asientos WHERE id=$1 AND activo=TRUE`, [
+      asientoId,
+    ]);
     if (!asQ.rowCount) {
       await client.query("ROLLBACK");
       return res.status(404).json({ ok: false, error: "Asiento no existe" });
@@ -803,10 +879,10 @@ app.post("/api/empleado/reservar", async (req, res) => {
     }
     const poolId = poolQ.rows[0].id;
 
-    const habilQ = await client.query(
-      `SELECT 1 FROM pool_asientos WHERE pool_id=$1 AND asiento_id=$2`,
-      [poolId, asientoId]
-    );
+    const habilQ = await client.query(`SELECT 1 FROM pool_asientos WHERE pool_id=$1 AND asiento_id=$2`, [
+      poolId,
+      asientoId,
+    ]);
     if (!habilQ.rowCount) {
       await client.query("ROLLBACK");
       return res.status(403).json({ ok: false, error: "Asiento no habilitado por tu supervisor" });
@@ -863,8 +939,6 @@ app.get("/api/empleado/mis-reservas", async (req, res) => {
 // --------------------
 // DEV / Setup endpoints (opcional)
 // --------------------
-
-// GET /api/dev/whoami?id=...
 app.get("/api/dev/whoami", devGuard, async (req, res) => {
   const id = String(req.query.id || "").trim();
   if (!id) return res.status(400).json({ ok: false, error: "Falta id" });
@@ -881,14 +955,11 @@ app.get("/api/dev/whoami", devGuard, async (req, res) => {
   }
 });
 
-// POST /api/dev/seed
-// crea pisos (7,8,11,12) y algunos asientos ejemplo si no existen
 app.post("/api/dev/seed", devGuard, async (_req, res) => {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
 
-    // pisos por id
     const pisos = [
       { id: 7, nombre: "Piso 7" },
       { id: 8, nombre: "Piso 8" },
