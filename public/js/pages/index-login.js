@@ -15,6 +15,48 @@ document.addEventListener("DOMContentLoaded", () => {
     el.textContent = msg || "";
   };
 
+  // ---------- Cooldown UI (pro) ----------
+  const COOLDOWN_SECONDS = 60;
+
+  const startCooldown = (btn, storageKey, seconds = COOLDOWN_SECONDS, labelBase = "Reenviar") => {
+    if (!btn) return;
+
+    const endAt = Date.now() + seconds * 1000;
+    localStorage.setItem(storageKey, String(endAt));
+
+    const original = btn.dataset.originalText || btn.textContent || labelBase;
+    btn.dataset.originalText = original;
+
+    const tick = () => {
+      const end = Number(localStorage.getItem(storageKey) || "0");
+      const leftMs = end - Date.now();
+      const left = Math.ceil(leftMs / 1000);
+
+      if (left <= 0) {
+        btn.disabled = false;
+        btn.textContent = original;
+        localStorage.removeItem(storageKey);
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = `${labelBase} (${left}s)`;
+      setTimeout(tick, 250);
+    };
+
+    tick();
+  };
+
+  const restoreCooldown = (btn, storageKey, labelBase = "Reenviar") => {
+    if (!btn) return;
+    const end = Number(localStorage.getItem(storageKey) || "0");
+    if (end > Date.now()) {
+      btn.dataset.originalText = btn.dataset.originalText || btn.textContent || labelBase;
+      const left = Math.ceil((end - Date.now()) / 1000);
+      startCooldown(btn, storageKey, left, labelBase);
+    }
+  };
+
   // ---------- Login elements ----------
   const loginForm = byId("loginForm");
   const emailEl = byId("email");
@@ -56,6 +98,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const forgotMsg = byId("forgotMsg");
   const btnForgot = byId("btnForgot");
 
+  // ---------- Restore cooldowns on load ----------
+  restoreCooldown(btnResendVerifyLogin, "cooldown:resend:login", "Reenviar");
+  restoreCooldown(btnResendVerifyRegister, "cooldown:resend:register", "Reenviar");
+  restoreCooldown(btnForgot, "cooldown:forgot", "Enviar link");
+
   // ---------- Modal controls ----------
   const openModal = (modalEl) => {
     if (!modalEl) return;
@@ -75,9 +122,7 @@ document.addEventListener("DOMContentLoaded", () => {
     openModal(registerModal);
   });
   closeRegisterBtn?.addEventListener("click", () => closeModal(registerModal));
-  closeRegisterBackdrop?.addEventListener("click", () =>
-    closeModal(registerModal)
-  );
+  closeRegisterBackdrop?.addEventListener("click", () => closeModal(registerModal));
   switchToLogin?.addEventListener("click", () => closeModal(registerModal));
 
   openForgot?.addEventListener("click", () => {
@@ -85,22 +130,21 @@ document.addEventListener("DOMContentLoaded", () => {
     openModal(forgotModal);
   });
   closeForgotBtn?.addEventListener("click", () => closeModal(forgotModal));
-  closeForgotBackdrop?.addEventListener("click", () =>
-    closeModal(forgotModal)
-  );
+  closeForgotBackdrop?.addEventListener("click", () => closeModal(forgotModal));
 
   // ---------- Util: resend verification ----------
-  const resendVerification = async (email, btn, msgEl) => {
+  const resendVerification = async (email, btn, msgEl, cooldownKey) => {
     const cleanEmail = String(email || "").trim();
     if (!cleanEmail) {
       setInfo(msgEl, "Escribí tu email primero.");
       return;
     }
 
+    // UX pro: arrancamos cooldown al click (evita spam)
+    startCooldown(btn, cooldownKey, 60, "Reenviar");
+
     if (btn) {
-      btn.disabled = true;
-      btn.dataset.originalText = btn.textContent || "";
-      btn.textContent = "Reenviando...";
+      btn.dataset.originalText = btn.dataset.originalText || btn.textContent || "Reenviar";
     }
     setInfo(msgEl, "");
 
@@ -124,32 +168,25 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     } catch {
       setInfo(msgEl, "Error de red. Probá de nuevo.");
-    } finally {
-      if (btn) {
-        btn.disabled = false;
-        btn.textContent = btn.dataset.originalText || "Reenviar verificación";
-      }
     }
   };
 
   btnResendVerifyLogin?.addEventListener("click", () =>
-    resendVerification(emailEl?.value, btnResendVerifyLogin, loginResendMsg)
+    resendVerification(emailEl?.value, btnResendVerifyLogin, loginResendMsg, "cooldown:resend:login")
   );
 
   btnResendVerifyRegister?.addEventListener("click", () =>
-    resendVerification(regEmail?.value, btnResendVerifyRegister, regResendMsg)
+    resendVerification(regEmail?.value, btnResendVerifyRegister, regResendMsg, "cooldown:resend:register")
   );
 
-  // ---------- Flag "verified=1" (vuelve desde /api/auth/verify-email) ----------
+  // ---------- Flag "verified=1" ----------
   try {
     const params = new URLSearchParams(window.location.search);
     if (params.get("verified") === "1") {
       setInfo(loginResendMsg, "✅ Email verificado. Ya podés iniciar sesión.");
       hide(loginResendWrap);
     }
-  } catch {
-    // nada
-  }
+  } catch {}
 
   // ---------- Login ----------
   loginForm?.addEventListener("submit", async (e) => {
@@ -183,19 +220,14 @@ document.addEventListener("DOMContentLoaded", () => {
         const msg = data?.error || "No se pudo iniciar sesión. Revisá tus datos.";
         setError(errorMsg, msg);
 
-        // Si el backend bloquea por no verificación, mostramos "Reenviar verificación"
-        const isVerifyBlock =
-          r.status === 403 && /verific/i.test(String(msg || ""));
-        if (isVerifyBlock) {
-          show(loginResendWrap);
-        }
+        const isVerifyBlock = r.status === 403 && /verific/i.test(String(msg || ""));
+        if (isVerifyBlock) show(loginResendWrap);
 
         btnLogin.disabled = false;
         btnLogin.textContent = "Iniciar sesión";
         return;
       }
 
-      // Guardar sesión mínima (si después querés JWT, se cambia)
       localStorage.setItem("user", JSON.stringify(data.user));
       window.location.href = "/home.html";
     } catch {
@@ -246,14 +278,8 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      // Éxito: backend pide verificación antes de login
-      setError(
-        regErrorMsg,
-        data?.message ||
-          "Cuenta creada. Revisá tu email para verificar antes de ingresar."
-      );
+      setError(regErrorMsg, data?.message || "Cuenta creada. Revisá tu email para verificar.");
 
-      // Mostramos el botón para reenviar por si no les llega
       show(regResendWrap);
       setInfo(regResendMsg, "¿No te llegó? Podés reenviar el mail de verificación.");
 
@@ -277,8 +303,8 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    btnForgot.disabled = true;
-    btnForgot.textContent = "Enviando...";
+    // UX pro: cooldown al click
+    startCooldown(btnForgot, "cooldown:forgot", 60, "Enviar link");
 
     try {
       const r = await fetch("/api/auth/forgot-password", {
@@ -290,27 +316,13 @@ document.addEventListener("DOMContentLoaded", () => {
       const data = await r.json().catch(() => null);
 
       if (!r.ok || !data?.ok) {
-        setInfo(
-          forgotMsg,
-          data?.error ||
-            "No se pudo enviar. Si te da 404, revisá que estés corriendo el server actualizado."
-        );
-        btnForgot.disabled = false;
-        btnForgot.textContent = "Enviar link";
+        setInfo(forgotMsg, data?.error || "No se pudo enviar. Probá de nuevo.");
         return;
       }
 
-      // Por seguridad el backend responde igual exista o no exista el mail
-      setInfo(
-        forgotMsg,
-        data?.message || "Listo. Si el email existe, te llegó un link de reseteo."
-      );
-      btnForgot.disabled = false;
-      btnForgot.textContent = "Enviar link";
+      setInfo(forgotMsg, data?.message || "Listo. Si el email existe, te llegó un link de reseteo.");
     } catch {
       setInfo(forgotMsg, "Error de red. Probá de nuevo.");
-      btnForgot.disabled = false;
-      btnForgot.textContent = "Enviar link";
     }
   });
 });
