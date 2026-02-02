@@ -1,293 +1,209 @@
-.page-index {
-  margin: 0;
-  overflow: hidden;
-  background: #000;
-  color: #fff;
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-}
-.page-index, .page-index * { box-sizing: border-box; }
+/* ==============================
+   INDEX (solo index)
+   ============================== */
 
-#earthCanvas {
-  position: fixed;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 1;
+
+.page-index .bg-building {
+  display: none !important;
 }
 
-/* Flight arriba del Earth, pero abajo del login */
-#flightCanvas {
-  position: fixed;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 2;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 700ms ease;
-}
-
-/* ===== Auth ===== */
-.hidden { display: none; }
-
-.auth {
-  position: fixed;
-  inset: 0;
-  z-index: 4;
+.page-index main.sky {
+  min-height: 100vh;
   display: grid;
   place-items: center;
-  padding: 16px;
-  opacity: 0;
-  transform: translateY(8px);
-  transition: opacity 500ms ease, transform 500ms ease;
-}
-.auth.visible {
-  opacity: 1;
-  transform: translateY(0);
+  overflow: hidden;
 }
 
-.auth__card {
-  width: 100%;
-  max-width: 420px;
-  border-radius: 18px;
-  padding: 16px 16px 14px;
-  background: rgba(12, 14, 20, 0.78);
-  border: 1px solid rgba(255,255,255,0.14);
-  backdrop-filter: blur(12px);
-  box-shadow: 0 22px 70px rgba(0,0,0,0.55);
+/* Login centrado */
+.page-index .login-panel {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  z-index: 3;
+  pointer-events: none;
 }
 
-.auth__header {
-  margin-bottom: 12px;
+.page-index .login-panel > * {
+  pointer-events: auto;
+}
+
+/* Card */
+.page-index .login-card.auth-card {
+  width: min(420px, 92vw);
+  padding: 18px 16px;
+  border-radius: 16px;
+  background: rgba(15, 18, 22, 0.82);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.page-index .auth-title {
+  color: #fff;
+  margin: 0 0 6px;
+  font-size: 18px;
+  font-weight: 700;
   text-align: center;
 }
 
-.auth__logo {
-  height: 34px;          /* más presente */
-  width: auto;
-  opacity: 0.95;
-  display: block;
-  margin: 0 auto 12px;   /* 👈 centra horizontal + separa del título */
+.page-index .auth-form {
+  width: 100%;
+  display: grid;
+  gap: 10px;
 }
 
-.auth__title {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 800;
-}
-.auth__subtitle {
-  margin: 6px 0 0;
-  font-size: 13px;
-  opacity: 0.85;
+.page-index .auth-field {
+  display: grid;
+  gap: 6px;
 }
 
-.auth__form {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 12px;
-}
-.auth__label {
+.page-index .auth-label {
+  color: rgba(255, 255, 255, 0.9);
   font-size: 12px;
-  opacity: 0.85;
 }
-.auth__input {
-  padding: 11px 12px;
+
+.page-index .auth-input {
+  height: 44px;
+  width: 100%;
+  padding: 0 12px;
   border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.14);
-  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
   color: #fff;
   outline: none;
 }
-.auth__input:focus {
-  border-color: rgba(255,255,255,0.26);
-  background: rgba(255,255,255,0.08);
+
+.page-index .auth-input::placeholder {
+  color: rgba(255, 255, 255, 0.45);
 }
 
-.auth__btn {
-  margin-top: 6px;
-  padding: 11px 14px;
-  border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.18);
-  background: rgba(255,255,255,0.10);
-  color: #fff;
-  font-weight: 750;
-  cursor: pointer;
+.page-index .auth-input:focus {
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1);
 }
 
-.auth__error {
+/* Error */
+.page-index .error-msg {
+  width: 100%;
+  margin: 0;
+  min-height: 18px;
+  color: #ffd2d2;
+  visibility: hidden;
+}
+
+.page-index .error-msg.show {
+  visibility: visible;
+}
+
+/* Botón link (Registrate / Volver) */
+.page-index .auth-foot {
   margin: 6px 0 0;
-  min-height: 16px;
+  text-align: center;
   font-size: 13px;
-  color: rgba(255, 180, 180, 0.95);
+  color: rgba(255, 255, 255, 0.88);
 }
 
-.auth__footer {
-  margin-top: 12px;
-  display: flex;
-  justify-content: center; /* 👈 centro */
-}
-
-.auth__link {
+.page-index .auth-link-btn {
   border: none;
   background: transparent;
-  color: rgba(255,255,255,0.85);
+  color: #fff;
+  font-weight: 700;
   text-decoration: underline;
   cursor: pointer;
-  padding: 8px 6px;
-  border-radius: 10px;
-  text-align: center;
+  padding: 0;
 }
 
-/* ===== Modal ===== */
-.modal {
+/* ==============================
+   MODAL REGISTER
+   ============================== */
+
+.page-index .modal[hidden] {
+  display: none;
+}
+
+.page-index .modal {
   position: fixed;
   inset: 0;
   z-index: 10;
 }
-.modal__backdrop {
+
+.modal__card{
+    top: 150px;
+}
+
+.page-index .modal__backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(0,0,0,0.62);
+  background: rgba(0, 0, 0, 0.55);
 }
-.modal__card {
+
+.page-index .modal__card {
   position: relative;
-  width: calc(100% - 24px);
-  max-width: 460px;
+  width: min(460px, 92vw);
   margin: 10vh auto 0;
-  border-radius: 18px;
-  padding: 14px;
-  background: rgba(12, 14, 20, 0.92);
-  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 16px;
+  padding: 16px 14px;
+
+  background: rgba(15, 18, 22, 0.92);
   backdrop-filter: blur(12px);
-  box-shadow: 0 22px 70px rgba(0,0,0,0.6);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
 }
-.modal__header {
+
+.page-index .modal__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
 }
-.modal__title {
+
+.page-index .modal__title {
   margin: 0;
   font-size: 16px;
-  font-weight: 850;
+  font-weight: 800;
+  color: #fff;
 }
-.modal__close {
+
+.page-index .modal__close {
   border: none;
   background: transparent;
-  color: rgba(255,255,255,0.9);
+  color: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
   font-size: 18px;
-  cursor: pointer;
-}
-.modal__form {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 12px;
-}
-.modal__label { font-size: 12px; opacity: 0.85; }
-.modal__input {
-  padding: 11px 12px;
-  border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.14);
-  background: rgba(255,255,255,0.06);
-  color: #fff;
-  outline: none;
-}
-.modal__btn {
-  margin-top: 6px;
-  padding: 11px 14px;
-  border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.18);
-  background: rgba(255,255,255,0.10);
-  color: #fff;
-  font-weight: 800;
-  cursor: pointer;
-}
-.modal__error {
-  margin: 6px 0 0;
-  min-height: 16px;
-  font-size: 13px;
-  color: rgba(255, 180, 180, 0.95);
+  padding: 6px 8px;
+  border-radius: 10px;
 }
 
-@media (min-width: 520px) {
-  .auth { padding: 20px; }
-  .auth__title { font-size: 19px; }
+.page-index .modal__close:hover {
+  background: rgba(255, 255, 255, 0.08);
 }
 
-/* Rectángulo Assurant para cubrir "Google Earth" */
-.assurant-cover {
-  position: fixed;
-  right: 100px;
-  bottom: 70px;
-  z-index: 9;
-
-  width: 300px;
-  height: 56px;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  /* 👇 ESTA es la clave */
-  gap: 40px;
-
-  background: #fffffffc;
-  border-radius: 8px;
+.page-index .modal__form {
+  display: grid;
+  gap: 10px;
 }
 
-.assurant-text {
-  font-size: 20px;
-  font-weight: 500;
-  letter-spacing: 0.05em;
-  color: #000000;
-}
-
-.assurant-cover img {
-  height: 40px;
-  width: auto;
+.page-index .info-msg {
+  width: 100%;
+  margin: 0;
+  min-height: 18px;
+  color: rgba(255, 255, 255, 0.9);
 }
 
 
-/* Ajustes mobile */
-@media (max-width: 1611px) {
-  .assurant-cover {
-    right: 100px;
-    bottom: 100px;
+/* Mobile */
+@media (max-width: 720px) {
+  .page-index .login-card.auth-card {
+    padding: 16px 14px;
   }
 
-  .assurant-cover img {
+  .page-index .modal__card {
+    margin-top: 8vh;
   }
-}
-
-@media (max-width: 1425px) {
-  .assurant-cover {
-    right: 30px;
-    bottom: 100px;
-  }
-
-  .assurant-cover img {
-  }
-}
-
-@media (max-width: 1280px) {
-  .assurant-cover {
-    right: 0px;
-    bottom: 100px;
-  }
-
-  .assurant-cover img {
-  }
-}
-
-@media (max-width: 700px) {
-  .assurant-cover {
-    right: auto;          /* ✅ anula desktop */
-    bottom: 100px;        /* podés mantenerlo o cambiarlo */
-    left: 50%;            /* ✅ centro horizontal */
-    transform: translateX(-50%); /* ✅ centra perfecto */
-
-    /* opcional: si querés que no se vaya a los bordes */
-    max-width: calc(100vw - 24px);}
 }

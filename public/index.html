@@ -1,142 +1,174 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Acceso</title>
+    <title>Pantalla de acceso</title>
 
-    <!-- Podés dejar base/components si querés consistencia global.
-         Si querés FULL limpio, eliminá estas 2 líneas. -->
     <link rel="stylesheet" href="/css/base.css" />
     <link rel="stylesheet" href="/css/components.css" />
-
-    <!-- Este es el único CSS que realmente importa para el nuevo index -->
     <link rel="stylesheet" href="/css/pages/index.css" />
+    <link rel="stylesheet" href="/css/scene.css" />
   </head>
 
   <body class="page-index">
-    <!-- Earth Studio sequence -->
-    <canvas id="earthCanvas" aria-hidden="true"></canvas>
+    <!-- HEADER compartido -->
+    <header>
+      <a href="/index.html" aria-label="Ir al inicio">
+        <img
+          src="/assets/images/assurant_logo.png"
+          alt="Logo Assurant"
+          class="logo"
+        />
+      </a>
+    </header>
 
-    <!-- Flight canvas (aparece al final) -->
-    <canvas id="flightCanvas" aria-hidden="true"></canvas>
+    <main class="sky">
+      <!-- Fondo base (override en pages/index.css) -->
+      <div class="bg-base"></div>
 
-    <!-- Overlay Assurant para cubrir Google Earth -->
-    <div class="assurant-cover" aria-hidden="true">
-      <span class="assurant-text">ASSURANT</span>
-      <img src="/assets/images/assurant_logo.png" alt="Assurant" />
-    </div>
+      <!-- Flight canvas -->
+      <canvas id="flightCanvas" aria-label="Animación niño volando"></canvas>
 
-    <!-- Login UI (aparece al final) -->
-    <main class="auth hidden" id="authUI">
-      <section class="auth__card">
-        <header class="auth__header">
-          <img
-            class="auth__logo"
-            src="/assets/images/assurant_logo.png"
-            alt="Assurant"
-          />
-          <h1 class="auth__title">Acceso</h1>
-          <p class="auth__subtitle">Ingresá con tu cuenta</p>
-        </header>
+      <!-- LOGIN -->
+      <div class="login-panel">
+        <div class="login-card auth-card">
+          <p class="auth-title">Acceso</p>
 
-        <form class="auth__form" id="loginForm">
-          <label class="auth__label" for="loginEmail">Email</label>
-          <input
-            class="auth__input"
-            id="loginEmail"
-            type="email"
-            autocomplete="email"
-            required
-          />
+          <form id="loginForm" class="auth-form" autocomplete="on">
+            <label class="auth-field">
+              <span class="auth-label">Email</span>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                class="auth-input"
+                placeholder="tuemail@empresa.com"
+                required
+              />
+            </label>
 
-          <label class="auth__label" for="loginPass">Contraseña</label>
-          <input
-            class="auth__input"
-            id="loginPass"
-            type="password"
-            autocomplete="current-password"
-            required
-          />
+            <label class="auth-field">
+              <span class="auth-label">Contraseña</span>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                class="auth-input"
+                placeholder="••••••••"
+                required
+              />
+            </label>
 
-          <button class="auth__btn" type="submit">Iniciar sesión</button>
+            <p id="errorMsg" class="error-msg"></p>
 
-          <p class="auth__error" id="errorMsg" role="alert"></p>
-        </form>
+            <button class="btn-acceder" id="btnLogin" type="submit">
+              Iniciar sesión
+            </button>
 
-        <div class="auth__footer">
-          <button class="auth__link" type="button" id="openRegister">
-            ¿No tenés cuenta? Registrate
-          </button>
+            <p class="auth-foot">
+              <button type="button" class="auth-link-btn" id="openForgot">
+                Olvidé mi contraseña
+              </button>
+            </p>
+
+            <p class="auth-foot">
+              ¿No tenés cuenta?
+              <button type="button" class="auth-link-btn" id="openRegister">
+                Registrate
+              </button>
+            </p>
+          </form>
         </div>
-      </section>
+      </div>
 
-      <!-- Modal Register -->
-      <div class="modal hidden" id="registerModal" aria-hidden="true">
-        <div class="modal__backdrop" id="registerBackdrop"></div>
+      <!-- MODAL REGISTER -->
+      <div id="registerModal" class="modal" hidden>
+        <div class="modal__backdrop" id="closeRegisterBackdrop"></div>
 
-        <div
-          class="modal__card"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="regTitle"
-        >
+        <div class="modal__card" role="dialog" aria-modal="true">
           <div class="modal__header">
-            <h2 class="modal__title" id="regTitle">Crear cuenta</h2>
-            <button
-              class="modal__close"
-              id="closeRegister"
-              type="button"
-              aria-label="Cerrar"
-            >
+            <h2 class="modal__title">Crear cuenta</h2>
+            <button class="modal__close" id="closeRegisterBtn" type="button">
               ✕
             </button>
           </div>
 
-          <form class="modal__form" id="registerForm">
-            <label class="modal__label" for="regNombre">Nombre</label>
-            <input class="modal__input" id="regNombre" type="text" required />
+          <form id="registerForm" class="modal__form" autocomplete="on">
+            <label class="auth-field">
+              <span class="auth-label">Nombre</span>
+              <input id="regNombre" type="text" class="auth-input" required />
+            </label>
 
-            <label class="modal__label" for="regApellido">Apellido</label>
-            <input class="modal__input" id="regApellido" type="text" required />
+            <label class="auth-field">
+              <span class="auth-label">Apellido</span>
+              <input id="regApellido" type="text" class="auth-input" required />
+            </label>
 
-            <label class="modal__label" for="regEmail">Email</label>
-            <input
-              class="modal__input"
-              id="regEmail"
-              type="email"
-              autocomplete="email"
-              required
-            />
+            <label class="auth-field">
+              <span class="auth-label">Email</span>
+              <input id="regEmail" type="email" class="auth-input" required />
+            </label>
 
-            <label class="modal__label" for="regPass">Contraseña</label>
-            <input
-              class="modal__input"
-              id="regPass"
-              type="password"
-              autocomplete="new-password"
-              required
-            />
+            <label class="auth-field">
+              <span class="auth-label">Contraseña</span>
+              <input
+                id="regPassword"
+                type="password"
+                class="auth-input"
+                required
+              />
+            </label>
 
-            <label class="modal__label" for="regSupervisorEmail"
-              >Email del supervisor (opcional)</label
-            >
-            <input
-              class="modal__input"
-              id="regSupervisorEmail"
-              type="email"
-              placeholder="supervisor@empresa.com"
-            />
+            <p id="regErrorMsg" class="error-msg"></p>
 
-            <button class="modal__btn" type="submit">Crear cuenta</button>
-            <p class="modal__error" id="regError" role="alert"></p>
+            <button class="btn-acceder" id="btnRegister" type="submit">
+              Crear cuenta
+            </button>
+
+            <p class="auth-foot" style="text-align: center; margin: 0">
+              ¿Ya tenés cuenta?
+              <button type="button" class="auth-link-btn" id="switchToLogin">
+                Volver al login
+              </button>
+            </p>
+          </form>
+        </div>
+      </div>
+      <!--modal forgot-->
+      <div id="forgotModal" class="modal" hidden>
+        <div class="modal__backdrop" id="closeForgotBackdrop"></div>
+
+        <div class="modal__card" role="dialog" aria-modal="true">
+          <div class="modal__header">
+            <h2 class="modal__title">Resetear contraseña</h2>
+            <button class="modal__close" id="closeForgotBtn" type="button">
+              ✕
+            </button>
+          </div>
+
+          <form id="forgotForm" class="modal__form" autocomplete="on">
+            <label class="auth-field">
+              <span class="auth-label">Email</span>
+              <input
+                id="forgotEmail"
+                type="email"
+                class="auth-input"
+                required
+              />
+            </label>
+
+            <p id="forgotMsg" class="info-msg"></p>
+
+            <button class="btn-acceder" id="btnForgot" type="submit">
+              Enviar link
+            </button>
           </form>
         </div>
       </div>
     </main>
 
-    <!-- IMPORTANTE: rutas correctas en tu proyecto -->
     <script src="/js/pages/flight.js"></script>
-    <script src="/js/pages/index.js"></script>
+    <script src="/js/pages/index-login.js"></script>
   </body>
 </html>

@@ -4,6 +4,52 @@
 // - DATABASE_URL: connection string de Neon
 // - DATABASE_SSL: "true" para forzar SSL (Render + Neon)
 // - SETUP_KEY: (opcional) key para endpoints /api/dev/*
+ // email sender
+const crypto = require("crypto");
+const nodemailer = require("nodemailer");
+
+const {
+  SMTP_HOST,
+  SMTP_PORT,
+  SMTP_USER,
+  SMTP_PASS,
+  MAIL_FROM,
+  APP_BASE_URL,
+} = process.env;
+
+const transporter =
+  SMTP_HOST && SMTP_USER && SMTP_PASS
+    ? nodemailer.createTransport({
+        host: SMTP_HOST,
+        port: Number(SMTP_PORT || 587),
+        secure: false,
+        auth: { user: SMTP_USER, pass: SMTP_PASS },
+      })
+    : null;
+
+async function sendMail({ to, subject, html }) {
+  // Si no hay SMTP configurado, no rompemos: logueamos el mail.
+  if (!transporter) {
+    console.log("📧 [DEV MAIL] to:", to, "subject:", subject);
+    console.log(html);
+    return;
+  }
+  await transporter.sendMail({
+    from: MAIL_FROM || SMTP_USER,
+    to,
+    subject,
+    html,
+  });
+}
+
+function randomToken() {
+  return crypto.randomBytes(32).toString("hex");
+}
+
+function sha256(x) {
+  return crypto.createHash("sha256").update(x).digest("hex");
+}
+
 
 const path = require("path");
 require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
@@ -133,6 +179,130 @@ app.post("/api/auth/register", async (req, res) => {
     client.release();
   }
 });
+
+// --------------------
+// AUTH (EMAIL + PASSWORD) - NUEVO
+// --------------------
+app.post("/api/auth/login", async (req, res) => {
+  const { email, password } = req.body || {};
+  if (!email || !password) {
+    return res.status(400).json({ ok: false, error: "Faltan datos" });
+  }
+
+  try {
+    const q = await pool.query(
+      `SELECT id, username, nombre, apellido, rol, password_hash
+       FROM usuarios
+       WHERE username=$1`,
+      [String(email).trim().toLowerCase()]
+    );
+
+    if (!q.rowCount) {
+      return res.status(404).json({ ok: false, error: "Usuario no encontrado" });
+    }
+
+    const user = q.rows[0];
+
+    // Si no tiene hash, no puede loguearse con password
+    if (!user.password_hash) {
+      return res.status(401).json({
+        ok: false,
+        error: "Usuario sin contraseña. Registralo o asignale password.",
+      });
+    }
+
+    const ok = await bcrypt.compare(String(password), user.password_hash);
+    if (!ok) {
+      return res.status(401).json({ ok: false, error: "Contraseña incorrecta" });
+    }
+
+    delete user.password_hash;
+    res.json({
+      ok: true,
+      user: {
+        id: user.id,
+        email: user.username,
+        nombre: user.nombre,
+        apellido: user.apellido,
+        rol: user.rol,
+      },
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: "Error login" });
+  }
+});
+
+app.post("/api/auth/register", async (req, res) => {
+  const { email, password, nombre, apellido } = req.body || {};
+  if (!email || !password || !nombre || !apellido) {
+    return res.status(400).json({ ok: false, error: "Faltan datos" });
+  }
+
+  try {
+    const hash = await bcrypt.hash(String(password), 10);
+
+    const q = await pool.query(
+      `INSERT INTO usuarios (username, nombre, apellido, rol, password_hash)
+       VALUES ($1,$2,$3,'user',$4)
+       RETURNING id, username, nombre, apellido, rol`,
+      [String(email).trim().toLowerCase(), nombre.trim(), apellido.trim(), hash]
+    );
+
+    res.json({
+      ok: true,
+      user: {
+        id: q.rows[0].id,
+        email: q.rows[0].username,
+        nombre: q.rows[0].nombre,
+        apellido: q.rows[0].apellido,
+        rol: q.rows[0].rol,
+      },
+    });
+  } catch (e) {
+    if (e.code === "23505")
+      return res.status(409).json({ ok: false, error: "Email ya existe" });
+    console.error(e);
+    res.status(500).json({ ok: false, error: "Error registrando" });
+  }
+});
+
+app.post("/api/auth/register", async (req, res) => {
+  const { email, password, nombre, apellido } = req.body || {};
+  if (!email || !password || !nombre || !apellido) {
+    return res.status(400).json({ ok: false, error: "Faltan datos" });
+  }
+
+  try {
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const hash = await bcrypt.hash(String(password), 10);
+
+    const q = await pool.query(
+      `INSERT INTO usuarios (username, nombre, apellido, rol, password_hash)
+       VALUES ($1,$2,$3,'user',$4)
+       RETURNING id, username, nombre, apellido, rol`,
+      [normalizedEmail, String(nombre).trim(), String(apellido).trim(), hash]
+    );
+
+    res.json({
+      ok: true,
+      user: {
+        id: q.rows[0].id,
+        email: q.rows[0].username,
+        nombre: q.rows[0].nombre,
+        apellido: q.rows[0].apellido,
+        rol: q.rows[0].rol,
+      },
+    });
+  } catch (e) {
+    if (e.code === "23505") {
+      return res.status(409).json({ ok: false, error: "Ese email ya existe" });
+    }
+    console.error(e);
+    res.status(500).json({ ok: false, error: "Error registrando" });
+  }
+});
+
 
 // Login
 // body: { email, password }
