@@ -1,15 +1,32 @@
 document.addEventListener("DOMContentLoaded", () => {
   // ---------- Helpers ----------
+  const byId = (id) => document.getElementById(id);
   const show = (el) => el && el.removeAttribute("hidden");
   const hide = (el) => el && el.setAttribute("hidden", "");
-  const byId = (id) => document.getElementById(id);
 
+  const setError = (el, msg) => {
+    if (!el) return;
+    el.textContent = msg || "";
+    el.classList.toggle("show", Boolean(msg));
+  };
+
+  const setInfo = (el, msg) => {
+    if (!el) return;
+    el.textContent = msg || "";
+  };
+
+  // ---------- Login elements ----------
   const loginForm = byId("loginForm");
   const emailEl = byId("email");
   const passEl = byId("password");
   const btnLogin = byId("btnLogin");
   const errorMsg = byId("errorMsg");
 
+  const loginResendWrap = byId("loginResendWrap");
+  const btnResendVerifyLogin = byId("btnResendVerifyLogin");
+  const loginResendMsg = byId("loginResendMsg");
+
+  // ---------- Register elements ----------
   const registerModal = byId("registerModal");
   const openRegister = byId("openRegister");
   const closeRegisterBtn = byId("closeRegisterBtn");
@@ -24,6 +41,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const regErrorMsg = byId("regErrorMsg");
   const btnRegister = byId("btnRegister");
 
+  const regResendWrap = byId("regResendWrap");
+  const btnResendVerifyRegister = byId("btnResendVerifyRegister");
+  const regResendMsg = byId("regResendMsg");
+
+  // ---------- Forgot password elements ----------
   const forgotModal = byId("forgotModal");
   const openForgot = byId("openForgot");
   const closeForgotBtn = byId("closeForgotBtn");
@@ -33,18 +55,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const forgotEmail = byId("forgotEmail");
   const forgotMsg = byId("forgotMsg");
   const btnForgot = byId("btnForgot");
-
-  const setError = (el, msg) => {
-    if (!el) return;
-    el.textContent = msg || "";
-    el.classList.toggle("show", Boolean(msg));
-  };
-
-  const setInfo = (el, msg) => {
-    if (!el) return;
-    el.textContent = msg || "";
-    // forgotMsg usa .info-msg (no tiene .show), así que no tocamos clases
-  };
 
   // ---------- Modal controls ----------
   const openModal = (modalEl) => {
@@ -60,6 +70,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   openRegister?.addEventListener("click", () => {
     setError(regErrorMsg, "");
+    setInfo(regResendMsg, "");
+    hide(regResendWrap);
     openModal(registerModal);
   });
   closeRegisterBtn?.addEventListener("click", () => closeModal(registerModal));
@@ -73,12 +85,79 @@ document.addEventListener("DOMContentLoaded", () => {
     openModal(forgotModal);
   });
   closeForgotBtn?.addEventListener("click", () => closeModal(forgotModal));
-  closeForgotBackdrop?.addEventListener("click", () => closeModal(forgotModal));
+  closeForgotBackdrop?.addEventListener("click", () =>
+    closeModal(forgotModal)
+  );
+
+  // ---------- Util: resend verification ----------
+  const resendVerification = async (email, btn, msgEl) => {
+    const cleanEmail = String(email || "").trim();
+    if (!cleanEmail) {
+      setInfo(msgEl, "Escribí tu email primero.");
+      return;
+    }
+
+    if (btn) {
+      btn.disabled = true;
+      btn.dataset.originalText = btn.textContent || "";
+      btn.textContent = "Reenviando...";
+    }
+    setInfo(msgEl, "");
+
+    try {
+      const r = await fetch("/api/auth/resend-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: cleanEmail }),
+      });
+
+      const data = await r.json().catch(() => null);
+
+      if (!r.ok || !data?.ok) {
+        setInfo(msgEl, data?.error || "No se pudo reenviar. Probá de nuevo.");
+      } else {
+        setInfo(
+          msgEl,
+          data?.message ||
+            "Listo. Si tu cuenta existe y todavía no está verificada, te reenviamos el email."
+        );
+      }
+    } catch {
+      setInfo(msgEl, "Error de red. Probá de nuevo.");
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = btn.dataset.originalText || "Reenviar verificación";
+      }
+    }
+  };
+
+  btnResendVerifyLogin?.addEventListener("click", () =>
+    resendVerification(emailEl?.value, btnResendVerifyLogin, loginResendMsg)
+  );
+
+  btnResendVerifyRegister?.addEventListener("click", () =>
+    resendVerification(regEmail?.value, btnResendVerifyRegister, regResendMsg)
+  );
+
+  // ---------- Flag "verified=1" (vuelve desde /api/auth/verify-email) ----------
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("verified") === "1") {
+      setInfo(loginResendMsg, "✅ Email verificado. Ya podés iniciar sesión.");
+      hide(loginResendWrap);
+    }
+  } catch {
+    // nada
+  }
 
   // ---------- Login ----------
   loginForm?.addEventListener("submit", async (e) => {
     e.preventDefault();
+
     setError(errorMsg, "");
+    setInfo(loginResendMsg, "");
+    hide(loginResendWrap);
 
     const email = String(emailEl?.value || "").trim();
     const password = String(passEl?.value || "");
@@ -101,10 +180,16 @@ document.addEventListener("DOMContentLoaded", () => {
       const data = await r.json().catch(() => null);
 
       if (!r.ok || !data?.ok) {
-        setError(
-          errorMsg,
-          data?.error || "No se pudo iniciar sesión. Revisá tus datos."
-        );
+        const msg = data?.error || "No se pudo iniciar sesión. Revisá tus datos.";
+        setError(errorMsg, msg);
+
+        // Si el backend bloquea por no verificación, mostramos "Reenviar verificación"
+        const isVerifyBlock =
+          r.status === 403 && /verific/i.test(String(msg || ""));
+        if (isVerifyBlock) {
+          show(loginResendWrap);
+        }
+
         btnLogin.disabled = false;
         btnLogin.textContent = "Iniciar sesión";
         return;
@@ -112,7 +197,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Guardar sesión mínima (si después querés JWT, se cambia)
       localStorage.setItem("user", JSON.stringify(data.user));
-
       window.location.href = "/home.html";
     } catch {
       setError(errorMsg, "Error de red. Probá de nuevo.");
@@ -124,7 +208,10 @@ document.addEventListener("DOMContentLoaded", () => {
   // ---------- Register ----------
   registerForm?.addEventListener("submit", async (e) => {
     e.preventDefault();
+
     setError(regErrorMsg, "");
+    setInfo(regResendMsg, "");
+    hide(regResendWrap);
 
     const nombre = String(regNombre?.value || "").trim();
     const apellido = String(regApellido?.value || "").trim();
@@ -166,12 +253,12 @@ document.addEventListener("DOMContentLoaded", () => {
           "Cuenta creada. Revisá tu email para verificar antes de ingresar."
       );
 
-      // Cerrar modal después de un toque
-      setTimeout(() => {
-        closeModal(registerModal);
-        btnRegister.disabled = false;
-        btnRegister.textContent = "Crear cuenta";
-      }, 1200);
+      // Mostramos el botón para reenviar por si no les llega
+      show(regResendWrap);
+      setInfo(regResendMsg, "¿No te llegó? Podés reenviar el mail de verificación.");
+
+      btnRegister.disabled = false;
+      btnRegister.textContent = "Crear cuenta";
     } catch {
       setError(regErrorMsg, "Error de red. Probá de nuevo.");
       btnRegister.disabled = false;
