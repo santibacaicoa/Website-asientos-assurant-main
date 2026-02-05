@@ -9,6 +9,104 @@
     <link rel="stylesheet" href="/css/pages/floor.css" />
   </head>
   <body class="page-floor">
-    <main class="floor-proximamente"><h1>PROXIMAMENTE</h1></main>
+       <main class="floor-page">
+      <div class="floor-layout">
+        <aside class="floor-side">
+          <div class="side-card">
+            <h1 class="side-title">Piso 12</h1>
+
+            <div id="adminBadge" class="admin-badge is-hidden">
+              🛡️ Admin activo (podés cancelar reservas de cualquiera)
+            </div>
+
+            <label class="side-label" for="datePick">Fecha</label>
+            <input id="datePick" class="side-date" type="date" />
+
+            <div class="seat-legend">
+              <span class="legend-item"><i class="dot free"></i> Libre</span>
+              <span class="legend-item"><i class="dot busy"></i> Ocupado</span>
+              <span class="legend-item"
+                ><i class="dot sel"></i> Seleccionado</span
+              >
+              <span class="legend-item"
+                ><i class="dot cancel"></i> A cancelar</span
+              >
+            </div>
+
+            <div class="confirm-row">
+              <div class="confirm-count">
+                Seleccionados: <span id="selCount">0</span>
+              </div>
+
+              <button
+                id="btnConfirm"
+                class="side-btn side-btn-primary"
+                type="button"
+                disabled
+              >
+                Confirmar reserva
+              </button>
+
+              <button id="btnClearSel" class="side-btn" type="button" disabled>
+                Limpiar selección
+              </button>
+
+              <button
+                id="btnToggleCancel"
+                class="side-btn side-btn-danger"
+                type="button"
+              >
+                Quitar reservas
+              </button>
+
+              <button
+                id="btnConfirmCancel"
+                class="side-btn side-btn-danger"
+                type="button"
+                disabled
+              >
+                Confirmar cancelación
+              </button>
+
+              <button
+                id="btnClearCancel"
+                class="side-btn"
+                type="button"
+                disabled
+              >
+                Limpiar cancelación
+              </button>
+            </div>
+
+            <button id="btnBackHome" class="side-btn" type="button">
+              Volver / Cambiar usuario
+            </button>
+
+            <p id="sideMsg" class="side-msg"></p>
+
+            <div id="editHint" class="edit-hint is-hidden">
+              <strong>Modo edición activo</strong>
+              <div>Shift + Click → agrega y acumula (copiar todo en HUD)</div>
+              <div>Tecla E → activar/desactivar</div>
+            </div>
+          </div>
+        </aside>
+
+        <section class="floor-map" id="floorMap" aria-label="Mapa piso 12">
+          <img
+            id="floorBg"
+            class="floor-bg"
+            src="/assets/images/piso12.png"
+            alt="Plano Piso 12"
+            draggable="false"
+          />
+
+          <div id="seatsLayer" class="seats-layer" aria-label="Asientos"></div>
+          <div id="editCursor" class="edit-cursor is-hidden"></div>
+        </section>
+      </div>
+    </main>
+
+    <script src="/js/pages/floor12.js"></script>
   </body>
 </html>
