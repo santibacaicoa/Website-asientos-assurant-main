@@ -1,14 +1,14 @@
-// =============================================================================
-// floor.js - Vista única para todos los pisos
-// URL: /floor.html?piso=8&fecha=YYYY-MM-DD&mode=empleado|supervisor
-// - empleado: muestra asientos (libre/ocupado) y permite reservar (1 asiento)
-// - supervisor/admin: permite habilitar pool de asientos para una fecha
-// =============================================================================
-
 document.addEventListener("DOMContentLoaded", () => {
   const $ = (id) => document.getElementById(id);
 
+  const floorMap = $("floorMap");
   const seatsLayer = $("seatsLayer");
+
+  const btnMenu = $("btnMenu");
+  const drawer = $("drawer");
+  const drawerBackdrop = $("drawerBackdrop");
+  const btnCloseMenu = $("btnCloseMenu");
+
   const datePick = $("datePick");
   const btnConfirm = $("btnConfirm");
   const btnClearSel = $("btnClearSel");
@@ -18,25 +18,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const sideMsg = $("sideMsg");
   const floorTitle = $("floorTitle");
   const modeBadge = $("modeBadge");
-  const floorBg = $("floorBg");
-  const legendEmpleado = $("legendEmpleado");
-
-  if (
-    !seatsLayer ||
-    !datePick ||
-    !btnConfirm ||
-    !btnClearSel ||
-    !selCount ||
-    !btnBack ||
-    !btnLogout ||
-    !sideMsg ||
-    !floorTitle ||
-    !modeBadge ||
-    !floorBg
-  ) {
-    console.warn("[floor] faltan elementos en HTML");
-    return;
-  }
 
   const safeJson = (raw) => {
     try {
@@ -62,71 +43,70 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const role = String(user.rol || "").toUpperCase();
   const isSupervisorRole = role === "SUPERVISOR" || role === "ADMIN";
-
-  // mode final (no confiamos 100% en la URL)
-  const mode =
-    modeParam === "supervisor" && isSupervisorRole ? "supervisor" : "empleado";
+  const mode = modeParam === "supervisor" && isSupervisorRole ? "supervisor" : "empleado";
 
   const fecha = isISO(fechaParam)
     ? fechaParam
-    : localStorage.getItem("reserva.fecha") && isISO(localStorage.getItem("reserva.fecha"))
+    : (localStorage.getItem("reserva.fecha") && isISO(localStorage.getItem("reserva.fecha")))
     ? localStorage.getItem("reserva.fecha")
     : todayISO();
 
   if (!/^(7|8|11|12)$/.test(piso)) {
     sideMsg.textContent = "Piso inválido.";
-    btnConfirm.disabled = true;
     return;
   }
 
-  // Config de imágenes por piso
-const FLOOR_BG = {
-  "7": "/assets/images/piso7.png",
-  "8": "/assets/images/piso8.jpg",
-  "11": "/assets/images/piso11.png",
-  "12": "/assets/images/piso12.png",
-};
+  // ⚠️ Ajustá si tus nombres reales son distintos
+  const FLOOR_BG = {
+    "7": "/assets/images/piso7.png",
+    "8": "/assets/images/piso8.jpg",
+    "11": "/assets/images/piso11.png",
+    "12": "/assets/images/piso12.png",
+  };
 
+  // Background del mapa (letterbox negro por CSS)
+  const bg = FLOOR_BG[piso];
+  if (bg) floorMap.style.backgroundImage = `url("${bg}")`;
 
   floorTitle.textContent = `Piso ${piso}`;
   document.title = `Piso ${piso}`;
   datePick.value = fecha;
+
   localStorage.setItem("reserva.fecha", fecha);
   localStorage.setItem("reserva.floor", piso);
 
-  const bg = FLOOR_BG[piso];
-  if (bg) {
-    floorBg.src = bg;
-    floorBg.alt = `Plano piso ${piso}`;
-  } else {
-    floorBg.removeAttribute("src");
-    floorBg.alt = "";
-  }
-
-  // UI por modo
-  if (mode === "supervisor") {
-    modeBadge.textContent = "🛡️ Modo Supervisor: habilitás asientos (pool)";
-    modeBadge.classList.remove("is-hidden");
-    btnConfirm.textContent = "Guardar pool";
-    legendEmpleado?.classList.add("is-hidden");
-  } else {
-    modeBadge.textContent = "👤 Modo Empleado: reservá un asiento";
-    modeBadge.classList.remove("is-hidden");
-    btnConfirm.textContent = "Confirmar reserva";
-  }
+  modeBadge.textContent =
+    mode === "supervisor"
+      ? "🛡️ Supervisor: habilitás asientos (pool)"
+      : "👤 Empleado: solo elegís asientos del pool (verdes)";
+  btnConfirm.textContent = mode === "supervisor" ? "Guardar pool" : "Confirmar reserva";
 
   const setMsg = (t) => (sideMsg.textContent = t || "");
 
+  // Drawer helpers
+  const openDrawer = () => {
+    drawer.classList.add("is-open");
+    drawerBackdrop.hidden = false;
+  };
+  const closeDrawer = () => {
+    drawer.classList.remove("is-open");
+    drawerBackdrop.hidden = true;
+  };
+
+  btnMenu.addEventListener("click", openDrawer);
+  btnCloseMenu.addEventListener("click", closeDrawer);
+  drawerBackdrop.addEventListener("click", closeDrawer);
+
   // Estado
-  const seatEls = new Map();
+  const seatEls = new Map(); // id -> button
   const allSeats = new Map(); // id -> seat
-  let occupied = new Set();
-  let enabledPool = new Set();
-  let selected = new Set();
+  let occupied = new Set(); // ids ocupados dentro del pool
+  let enabledPool = new Set(); // ids habilitados por pool
+  let selected = new Set(); // selección actual
 
   const setSelected = (id, on) => {
     if (on) {
-      if (mode === "empleado") selected.clear(); // empleado elige 1
+      if (mode === "empleado") selected.clear(); // empleado solo 1
       selected.add(id);
     } else {
       selected.delete(id);
@@ -142,22 +122,19 @@ const FLOOR_BG = {
 
   const applySeatClasses = () => {
     seatEls.forEach((btn, id) => {
+      const inPool = enabledPool.has(id);
       const isOcc = occupied.has(id);
       const isSel = selected.has(id);
-      const isEnabled = enabledPool.has(id);
 
-      btn.classList.toggle("is-busy", isOcc);
-      btn.classList.toggle("is-free", !isOcc);
+      btn.classList.toggle("is-out", !inPool);
+      btn.classList.toggle("is-pool", inPool);
+      btn.classList.toggle("is-busy", inPool && isOcc);
       btn.classList.toggle("is-selected", isSel);
 
       if (mode === "empleado") {
-        // empleado: ocupados deshabilitados y si no está habilitado por pool también
-        btn.disabled = isOcc || !isEnabled;
-        btn.classList.toggle("is-disabled", btn.disabled);
+        btn.disabled = !inPool || isOcc;
       } else {
-        // supervisor: puede seleccionar cualquiera
         btn.disabled = false;
-        btn.classList.remove("is-disabled");
       }
     });
   };
@@ -166,15 +143,10 @@ const FLOOR_BG = {
     seatsLayer.innerHTML = "";
     seatEls.clear();
 
-    if (!FLOOR_BG[piso]) {
-      setMsg("Este piso todavía está en preparación.");
-      return;
-    }
-
     for (const [id, s] of allSeats.entries()) {
       const b = document.createElement("button");
       b.type = "button";
-      b.className = "seat is-free";
+      b.className = "seat is-out";
       b.style.left = `${Number(s.x)}%`;
       b.style.top = `${Number(s.y)}%`;
 
@@ -207,41 +179,37 @@ const FLOOR_BG = {
     applySeatClasses();
   };
 
-  // API calls
+  // API
   const fetchAllSeats = async () => {
     const r = await fetch(`/api/asientos?piso=${encodeURIComponent(piso)}`);
     const data = await r.json().catch(() => null);
     if (!r.ok || !data?.ok) throw new Error(data?.error || "Error cargando asientos");
-
     allSeats.clear();
-    (data.asientos || []).forEach((s) => {
-      allSeats.set(String(s.id), s);
-    });
+    (data.asientos || []).forEach((s) => allSeats.set(String(s.id), s));
   };
 
   const fetchEmpleadoState = async () => {
-    const rPool = await fetch(
-      `/api/empleado/pool-status?empleado_id=${encodeURIComponent(
-        user.id
-      )}&piso=${encodeURIComponent(piso)}&fecha=${encodeURIComponent(datePick.value)}`
+    const r = await fetch(
+      `/api/empleado/pool-status?empleado_id=${encodeURIComponent(user.id)}&piso=${encodeURIComponent(
+        piso
+      )}&fecha=${encodeURIComponent(datePick.value)}`
     );
-    const data = await rPool.json().catch(() => null);
-    if (!rPool.ok || !data?.ok) throw new Error(data?.error || "Error cargando pool");
+    const data = await r.json().catch(() => null);
+    if (!r.ok || !data?.ok) throw new Error(data?.error || "Error cargando pool");
 
     const seats = Array.isArray(data.asientos) ? data.asientos : [];
-
     enabledPool = new Set(seats.map((s) => String(s.id)));
     occupied = new Set(seats.filter((s) => !!s.ocupado).map((s) => String(s.id)));
 
-    if (enabledPool.size === 0) setMsg("No hay asientos habilitados para esta fecha (pool vacío o no configurado).");
+    if (enabledPool.size === 0) setMsg("No hay asientos habilitados para esta fecha (pool no configurado).");
     else setMsg("");
   };
 
   const fetchSupervisorState = async () => {
     const r = await fetch(
-      `/api/supervisor/pool?supervisor_id=${encodeURIComponent(
-        user.id
-      )}&piso=${encodeURIComponent(piso)}&fecha=${encodeURIComponent(datePick.value)}`
+      `/api/supervisor/pool?supervisor_id=${encodeURIComponent(user.id)}&piso=${encodeURIComponent(
+        piso
+      )}&fecha=${encodeURIComponent(datePick.value)}`
     );
     const data = await r.json().catch(() => null);
     if (!r.ok || !data?.ok) throw new Error(data?.error || "Error cargando pool");
@@ -249,7 +217,6 @@ const FLOOR_BG = {
     const ids = Array.isArray(data.asientos) ? data.asientos : [];
     enabledPool = new Set(ids.map((x) => String(x)));
     selected = new Set([...enabledPool]);
-    setMsg("");
   };
 
   const refresh = async () => {
@@ -266,7 +233,7 @@ const FLOOR_BG = {
     applySeatClasses();
   };
 
-  // Acciones
+  // Actions
   btnClearSel.addEventListener("click", () => {
     selected.clear();
     updateSelectionUI();
@@ -312,15 +279,13 @@ const FLOOR_BG = {
           body: JSON.stringify(payload),
         });
         const data = await r.json().catch(() => null);
-        if (!r.ok || !data?.ok)
-          throw new Error(data?.error || "No se pudo guardar el pool");
+        if (!r.ok || !data?.ok) throw new Error(data?.error || "No se pudo guardar el pool");
 
         setMsg(`Pool guardado. Habilitados: ${data.habilitados || selected.size}`);
         await refresh();
         return;
       }
 
-      // empleado: reservar 1 asiento
       const seatId = [...selected][0];
       const r = await fetch("/api/empleado/reservar", {
         method: "POST",
@@ -332,14 +297,17 @@ const FLOOR_BG = {
         }),
       });
       const data = await r.json().catch(() => null);
-      if (!r.ok || !data?.ok)
-        throw new Error(data?.error || "No se pudo reservar");
+      if (!r.ok || !data?.ok) throw new Error(data?.error || "No se pudo reservar");
 
       setMsg("Reserva confirmada ✅");
       selected.clear();
       await refresh();
+
+      // UX: abrir menú para ver confirmación en mobile
+      openDrawer();
     } catch (e) {
       setMsg(e.message || "Error");
+      openDrawer();
     } finally {
       updateSelectionUI();
       applySeatClasses();

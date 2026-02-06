@@ -4,70 +4,84 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Floor</title>
+
     <link rel="stylesheet" href="/css/base.css" />
     <link rel="stylesheet" href="/css/components.css" />
     <link rel="stylesheet" href="/css/pages/floor.css" />
   </head>
 
   <body class="page-floor">
-    <main class="floor-page">
-      <div class="floor-layout">
-        <aside class="floor-side">
-          <div class="side-card">
-            <h1 id="floorTitle" class="side-title">Piso</h1>
+    <!-- MAPA A PANTALLA COMPLETA -->
+    <main class="floor-root">
+      <section id="floorMap" class="floor-map" aria-label="Mapa del piso">
+        <!-- Layer de asientos -->
+        <div id="seatsLayer" class="seats-layer" aria-label="Asientos"></div>
 
-            <div id="modeBadge" class="admin-badge is-hidden"></div>
+        <!-- Botón flotante del menú -->
+        <button
+          id="btnMenu"
+          class="menu-fab"
+          type="button"
+          aria-label="Abrir menú"
+        >
+          ☰
+        </button>
+      </section>
 
-            <label class="side-label" for="datePick">Fecha</label>
-            <input id="datePick" class="side-date" type="date" />
+      <!-- MENÚ DESPLEGABLE -->
+      <aside id="drawerBackdrop" class="drawer-backdrop" hidden></aside>
 
-            <div class="seat-legend" id="legendEmpleado">
-              <span class="legend-item"><i class="dot free"></i> Libre</span>
-              <span class="legend-item"><i class="dot busy"></i> Ocupado</span>
-              <span class="legend-item"
-                ><i class="dot sel"></i> Seleccionado</span
-              >
+      <aside id="drawer" class="drawer" aria-label="Menú">
+        <div class="drawer-header">
+          <div>
+            <div id="floorTitle" class="drawer-title">Piso</div>
+            <div id="modeBadge" class="drawer-badge"></div>
+          </div>
+          <button
+            id="btnCloseMenu"
+            class="drawer-close"
+            type="button"
+            aria-label="Cerrar menú"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div class="drawer-body">
+          <label class="drawer-label" for="datePick">Fecha</label>
+          <input id="datePick" class="drawer-input" type="date" />
+
+          <div class="drawer-row">
+            <div class="drawer-meta">
+              Seleccionados: <span id="selCount">0</span>
             </div>
 
-            <div class="confirm-row">
-              <div class="confirm-count">
-                Seleccionados: <span id="selCount">0</span>
-              </div>
-
-              <button
-                id="btnConfirm"
-                class="side-btn side-btn-primary"
-                type="button"
-                disabled
-              >
-                Confirmar
-              </button>
-
-              <button id="btnClearSel" class="side-btn" type="button" disabled>
-                Limpiar selección
-              </button>
-            </div>
-
-            <button id="btnBack" class="side-btn" type="button">Volver</button>
-            <button id="btnLogout" class="side-btn" type="button">
-              Cerrar sesión
+            <button
+              id="btnConfirm"
+              class="drawer-btn drawer-btn-primary"
+              type="button"
+              disabled
+            >
+              Confirmar
             </button>
 
-            <p id="sideMsg" class="side-msg"></p>
+            <button id="btnClearSel" class="drawer-btn" type="button" disabled>
+              Limpiar selección
+            </button>
           </div>
-        </aside>
 
-        <section class="floor-map" id="floorMap" aria-label="Mapa del piso">
-          <img
-            id="floorBg"
-            class="floor-bg"
-            src=""
-            alt="Plano"
-            draggable="false"
-          />
-          <div id="seatsLayer" class="seats-layer" aria-label="Asientos"></div>
-        </section>
-      </div>
+          <div class="drawer-row">
+            <button id="btnBack" class="drawer-btn" type="button">
+              Volver
+            </button>
+            <button id="btnLogout" class="drawer-btn" type="button">
+              Cerrar sesión
+            </button>
+          </div>
+
+          <p id="sideMsg" class="drawer-msg"></p>
+        </div>
+      </aside>
     </main>
 
     <script src="/js/pages/floor.js"></script>

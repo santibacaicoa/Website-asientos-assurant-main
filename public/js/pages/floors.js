@@ -36,20 +36,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const titleEl = document.querySelector(".floor-title");
   const subEl = document.querySelector(".floor-subtitle");
 
-  if (titleEl) {
-    titleEl.textContent =
-      safeMode === "supervisor"
-        ? "Elegí un piso para habilitar asientos"
-        : "Elegí un piso para tu reserva";
-  }
-
-  if (subEl) {
-    subEl.textContent =
-      safeMode === "supervisor"
-        ? "Seleccioná el piso. En la próxima pantalla vas a elegir qué asientos quedan habilitados para esa fecha."
-        : "Seleccioná el piso. En la próxima pantalla vas a elegir un asiento disponible para esa fecha.";
-  }
-
   const floorLayers = document.querySelectorAll(".floor-layer");
   if (!floorLayers.length) return;
 
