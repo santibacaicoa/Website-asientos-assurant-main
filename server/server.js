@@ -787,13 +787,47 @@ app.get("/api/asientos", async (req, res) => {
 
 // POST /api/supervisor/pools
 app.post("/api/supervisor/pools", async (req, res) => {
-  const { supervisor_id, piso, fecha, asiento_ids } = req.body || {};
+  const { supervisor_id, piso, fecha, fechas, fecha_desde, fecha_hasta, asiento_ids } = req.body || {};
   const supervisorId = String(supervisor_id || "").trim();
   const pisoNum = Number(piso);
 
-  if (!supervisorId || !pisoNum || !isISODate(fecha) || !Array.isArray(asiento_ids)) {
+  if (!supervisorId || !pisoNum || !Array.isArray(asiento_ids)) {
     return res.status(400).json({ ok: false, error: "Faltan datos" });
   }
+
+  // Soportamos 3 formatos:
+  // - fecha (una sola)
+  // - fechas (array de fechas ISO)
+  // - fecha_desde / fecha_hasta (rango)
+  let fechasList = [];
+
+  if (Array.isArray(fechas) && fechas.length) {
+    fechasList = fechas.map((f) => String(f || "").trim()).filter(Boolean);
+  } else if (fecha_desde && fecha_hasta) {
+    const fd = String(fecha_desde || "").trim();
+    const fh = String(fecha_hasta || "").trim();
+    if (!isISODate(fd) || !isISODate(fh)) {
+      return res.status(400).json({ ok: false, error: "Fechas inválidas" });
+    }
+
+    const from = new Date(fd + "T00:00:00Z");
+    const to = new Date(fh + "T00:00:00Z");
+    if (from > to) return res.status(400).json({ ok: false, error: "Rango de fechas inválido" });
+
+    for (let d = new Date(from); d <= to; d.setUTCDate(d.getUTCDate() + 1)) {
+      fechasList.push(d.toISOString().slice(0, 10));
+    }
+  } else {
+    const f1 = String(fecha || "").trim();
+    if (!isISODate(f1)) {
+      return res.status(400).json({ ok: false, error: "Falta fecha" });
+    }
+    fechasList = [f1];
+  }
+
+  // Normaliza + valida
+  fechasList = [...new Set(fechasList)].filter((f) => isISODate(f));
+  if (fechasList.length === 0) return res.status(400).json({ ok: false, error: "Fechas inválidas" });
 
   const client = await pool.connect();
   try {
@@ -807,28 +841,37 @@ app.post("/api/supervisor/pools", async (req, res) => {
       return res.status(404).json({ ok: false, error: "Piso no existe" });
     }
 
-    const poolQ = await client.query(
-      `INSERT INTO pools_supervisor (supervisor_id, piso_id, fecha)
-       VALUES ($1,$2,$3)
-       ON CONFLICT (supervisor_id, piso_id, fecha)
-       DO UPDATE SET supervisor_id = EXCLUDED.supervisor_id
-       RETURNING id, supervisor_id, piso_id, fecha`,
-      [supervisorId, pisoId, fecha]
-    );
-    const poolRow = poolQ.rows[0];
-
-    await client.query(`DELETE FROM pool_asientos WHERE pool_id = $1`, [poolRow.id]);
+    let totalPools = 0;
+    let habilitadosTotal = 0;
 
     const clean = asiento_ids.map((x) => String(x).trim()).filter(Boolean);
-    for (const asientoId of clean) {
-      await client.query(`INSERT INTO pool_asientos (pool_id, asiento_id) VALUES ($1,$2)`, [
-        poolRow.id,
-        asientoId,
-      ]);
+
+    for (const f of fechasList) {
+      const poolQ = await client.query(
+        `INSERT INTO pools_supervisor (supervisor_id, piso_id, fecha)
+         VALUES ($1,$2,$3)
+         ON CONFLICT (supervisor_id, piso_id, fecha)
+         DO UPDATE SET supervisor_id = EXCLUDED.supervisor_id
+         RETURNING id, supervisor_id, piso_id, fecha`,
+        [supervisorId, pisoId, f]
+      );
+      const poolRow = poolQ.rows[0];
+
+      await client.query(`DELETE FROM pool_asientos WHERE pool_id = $1`, [poolRow.id]);
+
+      for (const asientoId of clean) {
+        await client.query(`INSERT INTO pool_asientos (pool_id, asiento_id) VALUES ($1,$2)`, [
+          poolRow.id,
+          asientoId,
+        ]);
+      }
+
+      totalPools++;
+      habilitadosTotal = clean.length;
     }
 
     await client.query("COMMIT");
-    res.json({ ok: true, pool: poolRow, habilitados: clean.length });
+    res.json({ ok: true, fechas: fechasList.length, pools_creados: totalPools, habilitados: habilitadosTotal });
   } catch (e) {
     await client.query("ROLLBACK").catch(() => {});
     const status = e.status || 500;
@@ -837,6 +880,7 @@ app.post("/api/supervisor/pools", async (req, res) => {
     client.release();
   }
 });
+
 
 // GET /api/supervisor/pool
 app.get("/api/supervisor/pool", async (req, res) => {

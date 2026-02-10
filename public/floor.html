@@ -11,13 +11,11 @@
   </head>
 
   <body class="page-floor">
-    <!-- MAPA A PANTALLA COMPLETA -->
+    <!-- MAPA A PANTALLA COMPLETA (background contain) -->
     <main class="floor-root">
-      <section id="floorMap" class="floor-map" aria-label="Mapa del piso">
-        <!-- Layer de asientos -->
-        <div id="seatsLayer" class="seats-layer" aria-label="Asientos"></div>
+      <section id="floorMap" class="floor-map" aria-label="Plano del piso">
+        <div id="seatsLayer" class="seats-layer"></div>
 
-        <!-- Botón flotante del menú -->
         <button
           id="btnMenu"
           class="menu-fab"
@@ -48,8 +46,11 @@
         </div>
 
         <div class="drawer-body">
-          <label class="drawer-label" for="datePick">Fecha</label>
-          <input id="datePick" class="drawer-input" type="date" />
+          <label class="drawer-label" for="datePickFrom">Desde</label>
+          <input id="datePickFrom" class="drawer-input" type="date" />
+
+          <label class="drawer-label" for="datePickTo">Hasta (opcional)</label>
+          <input id="datePickTo" class="drawer-input" type="date" />
 
           <div class="drawer-row">
             <div class="drawer-meta">
@@ -60,26 +61,22 @@
               id="btnConfirm"
               class="drawer-btn drawer-btn-primary"
               type="button"
-              disabled
             >
               Confirmar
             </button>
-
-            <button id="btnClearSel" class="drawer-btn" type="button" disabled>
-              Limpiar selección
-            </button>
           </div>
 
-          <div class="drawer-row">
-            <button id="btnBack" class="drawer-btn" type="button">
-              Volver
-            </button>
-            <button id="btnLogout" class="drawer-btn" type="button">
-              Cerrar sesión
-            </button>
-          </div>
+          <button id="btnClearSel" class="drawer-btn" type="button">
+            Limpiar selección
+          </button>
 
-          <p id="sideMsg" class="drawer-msg"></p>
+          <button id="btnBack" class="drawer-btn" type="button">Volver</button>
+
+          <button id="btnLogout" class="drawer-btn" type="button">
+            Cerrar sesión
+          </button>
+
+          <div id="sideMsg" class="drawer-msg"></div>
         </div>
       </aside>
     </main>
