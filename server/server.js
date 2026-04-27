@@ -1,6 +1,5 @@
 // server.js (v3) - Backend para sistema de pools + Auth
 // + Verificación email + resend + reset password
-// + Professional: daily limits, invalidate old tokens, nicer email templates
 // ----------------------------------------------------------------------------------------------
 // ENV:
 // - DATABASE_URL, DATABASE_SSL ("true"), SETUP_KEY
@@ -217,6 +216,16 @@ function resetPasswordHtml({ nombre, link }) {
 const app = express();
 app.use(express.json());
 
+// ✅ CORS SIN DEPENDENCIA (evita "Cannot find module 'cors'")
+app.use((req, res, next) => {
+  // Si querés restringirlo luego, acá se cambia.
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Setup-Key");
+  if (req.method === "OPTIONS") return res.sendStatus(204);
+  next();
+});
+
 // Static para servir /public
 app.use(express.static(path.join(__dirname, "..", "public")));
 
@@ -257,6 +266,7 @@ async function assertRole(client, usuarioId, allowedRoles) {
   return u;
 }
 
+// OJO: en tu proyecto "pisoNum" es 7/8/11/12 y tu tabla pisos usa id=7/8/11/12
 async function getPisoIdByNumero(client, pisoNumero) {
   const q = await client.query(`SELECT id FROM pisos WHERE id = $1`, [pisoNumero]);
   return q.rows[0]?.id ?? null;
@@ -300,10 +310,9 @@ function setCooldown(map, key) {
 // Daily limits (DB-based, “pro”)
 // --------------------
 const DAILY_LIMIT_VERIFY = 5; // max verificaciones por usuario/día
-const DAILY_LIMIT_RESET = 5;  // max resets por usuario/día
+const DAILY_LIMIT_RESET = 5; // max resets por usuario/día
 
 async function reachedDailyLimit(client, tableName, usuarioId, limit) {
-  // Cuenta tokens creados hoy (no importa si se usaron, lo que limita es el envío)
   const q = await client.query(
     `
     SELECT COUNT(*)::int AS c
@@ -368,14 +377,12 @@ app.post("/api/auth/register", async (req, res) => {
 
     const user = q.rows[0];
 
-    // Invalidate tokens viejos no usados (por prolijidad)
     await client.query(
       `DELETE FROM tokens_verificacion_email
        WHERE usuario_id = $1 AND usado_en IS NULL`,
       [user.id]
     );
 
-    // Token verificación
     const token = randomToken();
     const tokenHash = sha256(token);
     const expira = new Date(Date.now() + 1000 * 60 * 60 * 24);
@@ -388,7 +395,6 @@ app.post("/api/auth/register", async (req, res) => {
 
     await client.query("COMMIT");
 
-    // Mail fuera de TX (no rompe el registro)
     const link = `${baseUrl()}/api/auth/verify-email?token=${token}`;
     try {
       await sendMail({
@@ -451,7 +457,6 @@ app.get("/api/auth/verify-email", async (req, res) => {
       row.id,
     ]);
 
-    // Opcional pro: invalidar cualquier otro token pendiente
     await client.query(
       `UPDATE tokens_verificacion_email
        SET usado_en = now()
@@ -538,7 +543,6 @@ app.post("/api/auth/resend-verification", async (req, res) => {
     setCooldown(resendCooldownByEmail, email);
     setCooldown(resendCooldownByIp, ip);
 
-    // respuesta genérica
     const genericOk = () =>
       res.json({
         ok: true,
@@ -550,7 +554,6 @@ app.post("/api/auth/resend-verification", async (req, res) => {
     const user = q.rows[0];
     if (user.email_verificado) return genericOk();
 
-    // Daily limit (pro)
     const limitReached = await reachedDailyLimit(
       client,
       "tokens_verificacion_email",
@@ -565,7 +568,6 @@ app.post("/api/auth/resend-verification", async (req, res) => {
       });
     }
 
-    // invalidar tokens viejos pendientes
     await client.query(
       `DELETE FROM tokens_verificacion_email
        WHERE usuario_id = $1 AND usado_en IS NULL`,
@@ -625,7 +627,6 @@ app.post("/api/auth/forgot-password", async (req, res) => {
   setCooldown(resendCooldownByEmail, `fp:${email}`);
   setCooldown(resendCooldownByIp, `fp:${ip}`);
 
-  // Respuesta siempre OK
   res.json({
     ok: true,
     message: "Si el email existe, te enviamos un link para resetear.",
@@ -633,15 +634,11 @@ app.post("/api/auth/forgot-password", async (req, res) => {
 
   const client = await pool.connect();
   try {
-    const q = await client.query(
-      `SELECT id, email, nombre FROM usuarios WHERE email=$1`,
-      [email]
-    );
+    const q = await client.query(`SELECT id, email, nombre FROM usuarios WHERE email=$1`, [email]);
     if (!q.rowCount) return;
 
     const user = q.rows[0];
 
-    // Daily limit (pro)
     const limitReached = await reachedDailyLimit(
       client,
       "tokens_reset_password",
@@ -650,7 +647,6 @@ app.post("/api/auth/forgot-password", async (req, res) => {
     );
     if (limitReached) return;
 
-    // invalidar tokens viejos pendientes
     await client.query(
       `DELETE FROM tokens_reset_password
        WHERE usuario_id = $1 AND usado_en IS NULL`,
@@ -720,13 +716,9 @@ app.post("/api/auth/reset-password", async (req, res) => {
     const hash = await bcrypt.hash(newPassword, 10);
 
     await client.query("BEGIN");
-    await client.query(`UPDATE usuarios SET password_hash=$1 WHERE id=$2`, [
-      hash,
-      row.usuario_id,
-    ]);
+    await client.query(`UPDATE usuarios SET password_hash=$1 WHERE id=$2`, [hash, row.usuario_id]);
     await client.query(`UPDATE tokens_reset_password SET usado_en=now() WHERE id=$1`, [row.id]);
 
-    // invalidar cualquier otro token pendiente
     await client.query(
       `UPDATE tokens_reset_password
        SET usado_en = now()
@@ -747,7 +739,7 @@ app.post("/api/auth/reset-password", async (req, res) => {
 });
 
 // --------------------
-// PISOS / ASIENTOS + POOLS + RESERVAS (igual que antes)
+// PISOS / ASIENTOS + POOLS + RESERVAS
 // --------------------
 
 app.get("/api/pisos", async (_req, res) => {
@@ -795,10 +787,6 @@ app.post("/api/supervisor/pools", async (req, res) => {
     return res.status(400).json({ ok: false, error: "Faltan datos" });
   }
 
-  // Soportamos 3 formatos:
-  // - fecha (una sola)
-  // - fechas (array de fechas ISO)
-  // - fecha_desde / fecha_hasta (rango)
   let fechasList = [];
 
   if (Array.isArray(fechas) && fechas.length) {
@@ -825,7 +813,6 @@ app.post("/api/supervisor/pools", async (req, res) => {
     fechasList = [f1];
   }
 
-  // Normaliza + valida
   fechasList = [...new Set(fechasList)].filter((f) => isISODate(f));
   if (fechasList.length === 0) return res.status(400).json({ ok: false, error: "Fechas inválidas" });
 
@@ -871,7 +858,12 @@ app.post("/api/supervisor/pools", async (req, res) => {
     }
 
     await client.query("COMMIT");
-    res.json({ ok: true, fechas: fechasList.length, pools_creados: totalPools, habilitados: habilitadosTotal });
+    res.json({
+      ok: true,
+      fechas: fechasList.length,
+      pools_creados: totalPools,
+      habilitados: habilitadosTotal,
+    });
   } catch (e) {
     await client.query("ROLLBACK").catch(() => {});
     const status = e.status || 500;
@@ -880,7 +872,6 @@ app.post("/api/supervisor/pools", async (req, res) => {
     client.release();
   }
 });
-
 
 // GET /api/supervisor/pool
 app.get("/api/supervisor/pool", async (req, res) => {
@@ -907,9 +898,7 @@ app.get("/api/supervisor/pool", async (req, res) => {
 
     const poolId = poolQ.rows[0].id;
 
-    const asQ = await client.query(`SELECT asiento_id FROM pool_asientos WHERE pool_id=$1`, [
-      poolId,
-    ]);
+    const asQ = await client.query(`SELECT asiento_id FROM pool_asientos WHERE pool_id=$1`, [poolId]);
 
     res.json({ ok: true, pool: { id: poolId }, asientos: asQ.rows.map((r) => r.asiento_id) });
   } catch (e) {
@@ -920,7 +909,7 @@ app.get("/api/supervisor/pool", async (req, res) => {
   }
 });
 
-// GET /api/empleado/disponibles
+// ✅ GET /api/empleado/disponibles (FIX: reservas_empleado)
 app.get("/api/empleado/disponibles", async (req, res) => {
   const empleadoId = String(req.query.empleado_id || "").trim();
   const pisoNum = Number(req.query.piso);
@@ -958,13 +947,13 @@ app.get("/api/empleado/disponibles", async (req, res) => {
         AND a.activo = TRUE
         AND NOT EXISTS (
           SELECT 1
-          FROM reservas r
-          WHERE r.asiento_id = a.id
-            AND r.fecha = $2
+          FROM reservas_empleado re
+          WHERE re.pool_id = $1
+            AND re.asiento_id = a.id
         )
       ORDER BY a.codigo ASC
       `,
-      [poolId, fecha]
+      [poolId]
     );
 
     res.json({ ok: true, disponibles: q.rows });
@@ -976,10 +965,7 @@ app.get("/api/empleado/disponibles", async (req, res) => {
   }
 });
 
-// GET /api/empleado/pool-status
-// Devuelve TODOS los asientos del pool del supervisor del empleado para (piso, fecha)
-// incluyendo si están ocupados y por quién.
-// Útil para pintar el mapa (libre/ocupado) sin filtrar solo disponibles.
+// ✅ GET /api/empleado/pool-status (FIX: reservas_empleado)
 app.get("/api/empleado/pool-status", async (req, res) => {
   const empleadoId = String(req.query.empleado_id || "").trim();
   const pisoNum = Number(req.query.piso);
@@ -1008,7 +994,6 @@ app.get("/api/empleado/pool-status", async (req, res) => {
 
     const poolId = poolQ.rows[0].id;
 
-    // Todos los asientos del pool + ocupación (si hay reserva en esa fecha)
     const q = await client.query(
       `
       SELECT
@@ -1017,18 +1002,18 @@ app.get("/api/empleado/pool-status", async (req, res) => {
         a.x,
         a.y,
         a.radio,
-        (r.id IS NOT NULL) AS ocupado,
-        r.empleado_id AS ocupado_por
+        (re.id IS NOT NULL) AS ocupado,
+        re.empleado_id AS ocupado_por
       FROM pool_asientos pa
       JOIN asientos a ON a.id = pa.asiento_id
-      LEFT JOIN reservas r
-        ON r.asiento_id = a.id
-       AND r.fecha = $2
+      LEFT JOIN reservas_empleado re
+        ON re.pool_id = $1
+       AND re.asiento_id = a.id
       WHERE pa.pool_id = $1
         AND a.activo = TRUE
       ORDER BY a.codigo ASC
       `,
-      [poolId, fecha]
+      [poolId]
     );
 
     res.json({ ok: true, asientos: q.rows });
@@ -1040,8 +1025,7 @@ app.get("/api/empleado/pool-status", async (req, res) => {
   }
 });
 
-
-// POST /api/empleado/reservar
+// ✅ POST /api/empleado/reservar (FIX: reservas_empleado)
 app.post("/api/empleado/reservar", async (req, res) => {
   const empleadoId = String(req.body?.empleado_id || "").trim();
   const asientoId = String(req.body?.asiento_id || "").trim();
@@ -1092,20 +1076,44 @@ app.post("/api/empleado/reservar", async (req, res) => {
       return res.status(403).json({ ok: false, error: "Asiento no habilitado por tu supervisor" });
     }
 
+    // Check 1: asiento ya tomado en ese pool
+    const seatTaken = await client.query(
+      `SELECT 1 FROM reservas_empleado WHERE pool_id=$1 AND asiento_id=$2`,
+      [poolId, asientoId]
+    );
+    if (seatTaken.rowCount) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ ok: false, error: "Ese asiento ya está reservado" });
+    }
+
+    // Check 2: empleado ya reservó en ese pool/fecha
+    const alreadyReserved = await client.query(
+      `SELECT 1 FROM reservas_empleado WHERE pool_id=$1 AND empleado_id=$2`,
+      [poolId, empleadoId]
+    );
+    if (alreadyReserved.rowCount) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ ok: false, error: "Ya tenés una reserva para esa fecha" });
+    }
+
     const ins = await client.query(
-      `INSERT INTO reservas (empleado_id, asiento_id, fecha)
+      `INSERT INTO reservas_empleado (pool_id, asiento_id, empleado_id)
        VALUES ($1,$2,$3)
-       RETURNING id, empleado_id, asiento_id, fecha, creado_en`,
-      [empleadoId, asientoId, fecha]
+       RETURNING id, pool_id, asiento_id, empleado_id, creado_en`,
+      [poolId, asientoId, empleadoId]
     );
 
     await client.query("COMMIT");
-    res.json({ ok: true, reserva: ins.rows[0] });
+
+    res.json({
+      ok: true,
+      reserva: {
+        ...ins.rows[0],
+        fecha, // la fecha se infiere por pool_supervisor, pero devolvemos lo que mandó el front para compatibilidad
+      },
+    });
   } catch (e) {
     await client.query("ROLLBACK").catch(() => {});
-    if (e.code === "23505") {
-      return res.status(409).json({ ok: false, error: "Ese asiento ya está reservado" });
-    }
     console.error(e);
     res.status(500).json({ ok: false, error: "Error reservando" });
   } finally {
@@ -1113,7 +1121,7 @@ app.post("/api/empleado/reservar", async (req, res) => {
   }
 });
 
-// GET /api/empleado/mis-reservas
+// ✅ GET /api/empleado/mis-reservas (FIX: join con pools_supervisor para fecha)
 app.get("/api/empleado/mis-reservas", async (req, res) => {
   const empleadoId = String(req.query.empleado_id || "").trim();
   const fecha = String(req.query.fecha || "").trim();
@@ -1123,12 +1131,20 @@ app.get("/api/empleado/mis-reservas", async (req, res) => {
   try {
     const q = await pool.query(
       `
-      SELECT r.id, r.fecha, r.creado_en, a.codigo, a.piso_id
-      FROM reservas r
-      JOIN asientos a ON a.id = r.asiento_id
-      WHERE r.empleado_id = $1
-        AND r.fecha = $2
-      ORDER BY r.creado_en DESC
+      SELECT
+        re.id,
+        ps.fecha,
+        re.creado_en,
+        a.codigo,
+        a.piso_id,
+        re.asiento_id,
+        re.pool_id
+      FROM reservas_empleado re
+      JOIN pools_supervisor ps ON ps.id = re.pool_id
+      JOIN asientos a ON a.id = re.asiento_id
+      WHERE re.empleado_id = $1
+        AND ps.fecha = $2
+      ORDER BY re.creado_en DESC
       `,
       [empleadoId, fecha]
     );

@@ -1,0 +1,20 @@
+# Server
+PORT=3000
+APP_BASE_URL=http://localhost:3000
+
+# Database
+DATABASE_URL=postgresql://neondb_owner:npg_LAv6V4ohFyfS@ep-orange-cherry-ah5f7um0-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+DATABASE_SSL=true
+
+# Setup key (protects /api/dev/* endpoints)
+SETUP_KEY=setup12345
+
+# Email (Resend recommended in Render)
+RESEND_API_KEY=
+
+# SMTP (optional fallback)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=assurantasientos@gmail.com
+SMTP_PASS=ibpysiftpqzwfzyb
+MAIL_FROM="Assurant <assurantasientos@gmail.com>"

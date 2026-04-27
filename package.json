@@ -1,21 +1,20 @@
 {
   "name": "web_asientos",
   "version": "1.0.0",
-  "description": "",
-  "main": "flight.js",
+  "description": "Sistema de reservas de asientos (Assurant)",
+  "main": "server/server.js",
+  "type": "commonjs",
   "scripts": {
     "start": "node server/server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "nodemon server/server.js"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/santibacaicoa/Website-lugares-assurant.git",
-    "start": "node server/server.js"
+    "url": "git+https://github.com/santibacaicoa/Website-lugares-assurant.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
   "bugs": {
     "url": "https://github.com/santibacaicoa/Website-lugares-assurant/issues"
   },
@@ -23,8 +22,14 @@
   "dependencies": {
     "bcrypt": "^6.0.0",
     "dotenv": "^17.2.3",
-    "express": "^5.2.1",
+    "express": "^4.19.2",
     "nodemailer": "^7.0.13",
     "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }
